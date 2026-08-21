@@ -58,7 +58,7 @@ The workspace companion owns review states instead of mutating Paseo's native st
 
 ## Validation
 
-- Focused Bun tests for persistence behavior, workflow transitions, review heuristics, Linear GraphQL errors, port parsing/safety, and Tailscale command construction.
+- Focused Bun tests for concurrent persistence, review workflow transitions, review heuristics, Linear credential/confirmation/error behavior, port parsing/safety, Tailscale command construction, and mapping ownership. No test mutates a live Linear account or Tailscale configuration.
 - Strict TypeScript checks in all four packages.
 - Paseo plugin installation/reload without daemon restart.
 - Daemon status and plugin list/log inspection after installation.
@@ -72,4 +72,4 @@ The workspace companion owns review states instead of mutating Paseo's native st
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. All four plugins pass focused tests and strict TypeScript checks, report `running`, and loaded without plugin-log errors. A final source review remains before handoff.
+Implemented and locally installed on 2026-08-21. All four plugins pass focused tests, formatting, and strict TypeScript checks; report `running`; and load without plugin-log errors. Independent standards and specification reviews were run, and their material findings were resolved before handoff.

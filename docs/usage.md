@@ -23,5 +23,7 @@ All four plugins are installed against the local Paseo daemon. If the client was
 ## Dev Ports
 
 - Open **Dev ports** from the sidebar. The list includes only listening processes owned by the daemon user whose current directory is inside a registered Paseo workspace.
+- Open **Dev ports** from an agent's right panel to see the same controls filtered to that workspace.
 - **Stop process** requires confirmation, revalidates the process, and sends `SIGTERM` once. A surviving process is reported and is never force-killed.
 - **Share on tailnet** creates a private Tailscale Serve URL using the same port. It does not enable Funnel. **Stop sharing** removes that port's mapping.
+- The plugin records mappings it creates and refuses to remove a pre-existing or externally managed Tailscale mapping.
