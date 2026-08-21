@@ -28,8 +28,7 @@ export async function listDevPorts(paseo: PaseoClient): Promise<{
   forwards: PortForward[];
   tailscaleAvailable: boolean;
 }> {
-  const workspaces = (await paseo.workspaces.list({ page: { limit: 500 } }))
-    .entries;
+  const workspaces = await listAllWorkspaces(paseo);
   const ports = await discover(workspaces);
   const tailscale = await tailscaleState();
   const ownedPorts = new Set(await readOwnedPorts());
@@ -143,8 +142,7 @@ async function requireCurrentProcess(
   paseo: PaseoClient,
   expected: { pid: number; port: number; workspaceId: string },
 ): Promise<DevPort> {
-  const workspaces = (await paseo.workspaces.list({ page: { limit: 500 } }))
-    .entries;
+  const workspaces = await listAllWorkspaces(paseo);
   const process = (await discover(workspaces)).find(
     (candidate) =>
       candidate.pid === expected.pid &&
@@ -156,6 +154,23 @@ async function requireCurrentProcess(
       "The process changed or is no longer owned by this Paseo workspace.",
     );
   return process;
+}
+
+async function listAllWorkspaces(
+  paseo: PaseoClient,
+): Promise<PaseoWorkspace[]> {
+  const workspaces: PaseoWorkspace[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await paseo.workspaces.list({
+      page: { limit: 200, ...(cursor ? { cursor } : {}) },
+    });
+    workspaces.push(...page.entries);
+    cursor = page.pageInfo.hasMore
+      ? (page.pageInfo.nextCursor ?? undefined)
+      : undefined;
+  } while (cursor);
+  return workspaces;
 }
 
 async function discover(workspaces: PaseoWorkspace[]): Promise<DevPort[]> {

@@ -50,14 +50,14 @@ export default function contribute(plugin: PluginContext) {
   plugin.addSidebarItem({
     id: "prompt-library",
     title: "Prompt library",
-    icon: "library",
+    icon: "Blocks",
     surface: "prompt-library",
   });
   plugin.addAttachmentSource(PromptAttachmentSource);
   plugin.addCommandCenterItem({
     id: "open-prompt-library",
     title: "Open prompt library",
-    icon: "library",
+    icon: "Blocks",
     context: "global",
     onSelect: ({ openSurface }) => openSurface("prompt-library"),
   });

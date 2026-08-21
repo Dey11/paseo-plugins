@@ -26,27 +26,27 @@ export default function contribute(plugin: PluginContext) {
   plugin.addSidebarItem({
     id: "dev-ports",
     title: "Dev ports",
-    icon: "radio-tower",
+    icon: "Blocks",
     surface: "dev-ports",
   });
   plugin.addWorkspacePanel({
     id: "dev-ports",
     title: "Dev ports",
-    icon: "radio-tower",
+    icon: "Blocks",
     context: "agent",
     Component: DevPortsPanel,
   });
   plugin.addCommandCenterItem({
     id: "open-dev-ports",
     title: "Open dev ports",
-    icon: "radio-tower",
+    icon: "Blocks",
     context: "global",
     onSelect: ({ openSurface }) => openSurface("dev-ports"),
   });
   plugin.addCommandCenterItem({
     id: "open-workspace-dev-ports",
     title: "Open workspace dev ports",
-    icon: "radio-tower",
+    icon: "Blocks",
     context: "agent",
     onSelect: ({ openPanel }) => openPanel("dev-ports"),
   });

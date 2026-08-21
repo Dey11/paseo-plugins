@@ -48,7 +48,7 @@ export const SearchPromptAttachmentsRpc = defineRpc({
 export const PromptAttachmentSource = defineAttachmentSource({
   id: "saved-prompts",
   title: "Prompt library",
-  icon: "library",
+  icon: "Blocks",
   pickerTitle: "Attach a saved prompt",
   searchPlaceholder: "Search titles, tags, and prompt text…",
   search: SearchPromptAttachmentsRpc,

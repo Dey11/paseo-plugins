@@ -62,41 +62,41 @@ export default function contribute(plugin: PluginContext) {
   plugin.addSidebarItem({
     id: "agent-board",
     title: "Agent board",
-    icon: "columns-3",
+    icon: "PanelsTopLeft",
     surface: "agent-board",
   });
   plugin.addWorkspacePanel({
     id: "notes",
     title: "Notes",
-    icon: "notebook-pen",
+    icon: "ListPlus",
     context: "agent",
     Component: NotesPanel,
   });
   plugin.addWorkspacePanel({
     id: "review",
     title: "Review",
-    icon: "list-checks",
+    icon: "Scan",
     context: "agent",
     Component: ReviewPanel,
   });
   plugin.addCommandCenterItem({
     id: "open-agent-board",
     title: "Open agent board",
-    icon: "columns-3",
+    icon: "PanelsTopLeft",
     context: "global",
     onSelect: ({ openSurface }) => openSurface("agent-board"),
   });
   plugin.addCommandCenterItem({
     id: "open-notes",
     title: "Open workspace notes",
-    icon: "notebook-pen",
+    icon: "ListPlus",
     context: "agent",
     onSelect: ({ openPanel }) => openPanel("notes"),
   });
   plugin.addCommandCenterItem({
     id: "open-review",
     title: "Create review plan",
-    icon: "list-checks",
+    icon: "Scan",
     context: "agent",
     onSelect: ({ openPanel }) => openPanel("review"),
   });

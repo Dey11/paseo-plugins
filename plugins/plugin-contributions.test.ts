@@ -1,0 +1,50 @@
+import { describe, expect, test } from "bun:test";
+
+const contributionFiles = [
+  "plugins/workspace-companion/index.ts",
+  "plugins/prompt-library/index.ts",
+  "plugins/prompt-library/contracts.ts",
+  "plugins/linear/index.ts",
+  "plugins/dev-ports/index.ts",
+];
+const documentedLucideIcons = new Set([
+  "Blocks",
+  "CircleDot",
+  "ListPlus",
+  "PanelsTopLeft",
+  "Scan",
+]);
+
+describe("Paseo client contributions", () => {
+  test("uses exported PascalCase Lucide icon names", async () => {
+    for (const file of contributionFiles) {
+      const source = await Bun.file(file).text();
+      const icons = [...source.matchAll(/icon:\s*"([^"]+)"/g)].map(
+        (match) => match[1],
+      );
+
+      expect(icons.length, `${file} has no registered icons`).toBeGreaterThan(
+        0,
+      );
+      for (const icon of icons) {
+        expect(icon, `${file} registers an invalid Lucide icon`).toMatch(
+          /^[A-Z][A-Za-z0-9]*$/,
+        );
+        expect(
+          documentedLucideIcons.has(icon ?? ""),
+          `${file} uses an icon not demonstrated in the current Paseo docs`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  test("keeps Paseo API page requests within the daemon limit", async () => {
+    const source = await Bun.file("plugins/dev-ports/ports.server.ts").text();
+    const limits = [...source.matchAll(/limit:\s*(\d+)/g)].map((match) =>
+      Number(match[1]),
+    );
+
+    expect(limits.length).toBeGreaterThan(0);
+    for (const limit of limits) expect(limit).toBeLessThanOrEqual(200);
+  });
+});

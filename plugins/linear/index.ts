@@ -23,14 +23,14 @@ export default function contribute(plugin: PluginContext) {
   plugin.addWorkspacePanel({
     id: "linear",
     title: "Linear",
-    icon: "square-kanban",
+    icon: "CircleDot",
     context: "agent",
     Component: LinearPanel,
   });
   plugin.addCommandCenterItem({
     id: "open-linear",
     title: "Open Linear",
-    icon: "square-kanban",
+    icon: "CircleDot",
     context: "agent",
     onSelect: ({ openPanel }) => openPanel("linear"),
   });
