@@ -1,8 +1,4 @@
-import {
-  PluginAttachmentSearchPayloadSchema,
-  defineAttachmentSource,
-  defineRpc,
-} from "@getpaseo/plugin/server";
+import { defineRpc } from "@getpaseo/plugin/server";
 import { z } from "zod";
 
 export const LinearStateSchema = z.object({
@@ -48,8 +44,14 @@ export const LinearStatusRpc = defineRpc({
 });
 export const SearchLinearIssuesRpc = defineRpc({
   name: "linear.issues.search",
-  input: z.object({ query: z.string().max(200).default("") }),
-  output: z.array(LinearIssueSummarySchema),
+  input: z.object({
+    query: z.string().max(200).default(""),
+    cursor: z.string().nullable().default(null),
+  }),
+  output: z.object({
+    items: z.array(LinearIssueSummarySchema),
+    nextCursor: z.string().nullable(),
+  }),
 });
 export const GetLinearIssueRpc = defineRpc({
   name: "linear.issue.get",
@@ -79,18 +81,4 @@ export const MutateLinearIssueRpc = defineRpc({
   name: "linear.issue.mutate",
   input: LinearMutationSchema,
   output: LinearIssueSchema,
-});
-
-export const SearchLinearAttachmentsRpc = defineRpc({
-  name: "linear.attachments.search",
-  input: z.object({ query: z.string().max(200).default("") }),
-  output: PluginAttachmentSearchPayloadSchema,
-});
-export const LinearAttachmentSource = defineAttachmentSource({
-  id: "linear-issues",
-  title: "Linear",
-  icon: "square-kanban",
-  pickerTitle: "Attach a Linear issue",
-  searchPlaceholder: "Search Linear issues…",
-  search: SearchLinearAttachmentsRpc,
 });

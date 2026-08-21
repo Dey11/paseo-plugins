@@ -13,19 +13,25 @@ export async function linearStatus() {
 
 export async function searchIssues(
   query: string,
-): Promise<LinearIssueSummary[]> {
+  cursor: string | null,
+): Promise<{ items: LinearIssueSummary[]; nextCursor: string | null }> {
   return runLinearOperation(async () => {
     const client = await clientForRequest();
     if (!query.trim()) {
-      const issues = await client.issues({ first: 50 });
-      return Promise.all(issues.nodes.map(toSummary));
+      const page = await client.issues({
+        first: 50,
+        after: cursor,
+        includeArchived: false,
+      });
+      return summarizePage(page);
     }
-    const result = await client.searchIssues(query.trim(), {
+    const page = await client.searchIssues(query.trim(), {
       first: 50,
+      after: cursor,
       includeArchived: false,
       includeComments: false,
     });
-    return Promise.all(result.nodes.map(toSummary));
+    return summarizePage(page);
   });
 }
 
@@ -74,23 +80,31 @@ export async function runLinearOperation<Result>(
   }
 }
 
-export function issueAttachment(issue: LinearIssueSummary) {
-  return {
-    id: issue.id,
-    identifier: issue.identifier,
-    title: `${issue.identifier} · ${issue.title}`,
-    subtitle: `${issue.state} · ${issue.priorityLabel}`,
-    url: issue.url,
-    text: `${issue.identifier}: ${issue.title}\nState: ${issue.state}\nPriority: ${issue.priorityLabel}\n${issue.url}`,
-    resourceType: "linear-issue",
-  };
-}
-
 async function clientForRequest(): Promise<LinearClient> {
   const { apiKey } = await loadLinearCredential();
   if (!apiKey)
     throw new Error("LINEAR_API_KEY is not configured for the Paseo daemon.");
   return new LinearClient({ apiKey });
+}
+
+async function summarizePage(page: {
+  nodes: Array<Issue | IssueSearchResult>;
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor?: string;
+  };
+}): Promise<{ items: LinearIssueSummary[]; nextCursor: string | null }> {
+  return {
+    items: await Promise.all(page.nodes.map(toSummary)),
+    nextCursor: nextCursorForPage(page.pageInfo),
+  };
+}
+
+export function nextCursorForPage(pageInfo: {
+  hasNextPage: boolean;
+  endCursor?: string;
+}): string | null {
+  return pageInfo.hasNextPage ? (pageInfo.endCursor ?? null) : null;
 }
 
 async function toSummary(

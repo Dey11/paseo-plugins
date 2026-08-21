@@ -1,6 +1,6 @@
 import type { PluginAgentPanelProps, PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Linking,
@@ -30,6 +30,7 @@ export function LinearPanel({ theme, layout }: PluginAgentPanelProps) {
   const mutateIssue = useRpc(MutateLinearIssueRpc);
   const styles = useStyles(theme, layout.compact);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [issue, setIssue] = useState<LinearIssue | null>(null);
   const [comment, setComment] = useState("");
   const [pending, setPending] = useState<LinearMutation | null>(null);
@@ -39,15 +40,19 @@ export function LinearPanel({ theme, layout }: PluginAgentPanelProps) {
     queryKey: ["linear-status"],
     queryFn: () => statusRpc({}),
   });
-  const issues = useQuery({
-    queryKey: ["linear-issues", query],
-    queryFn: () => searchRpc({ query }),
+  const issues = useInfiniteQuery({
+    queryKey: ["linear-issues", debouncedQuery],
+    queryFn: ({ pageParam }) =>
+      searchRpc({ query: debouncedQuery, cursor: pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: status.data?.configured === true,
   });
   useEffect(() => {
-    const timer = setTimeout(() => issues.refetch(), 220);
+    const timer = setTimeout(() => setDebouncedQuery(query), 220);
     return () => clearTimeout(timer);
   }, [query]);
+  const issueItems = issues.data?.pages.flatMap((page) => page.items) ?? [];
 
   async function select(id: string) {
     setBusy(true);
@@ -118,7 +123,7 @@ export function LinearPanel({ theme, layout }: PluginAgentPanelProps) {
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       {!issue ? (
         <View style={styles.stack}>
-          {issues.data?.map((item) => (
+          {issueItems.map((item) => (
             <Pressable
               key={item.id}
               onPress={() => select(item.id)}
@@ -135,6 +140,16 @@ export function LinearPanel({ theme, layout }: PluginAgentPanelProps) {
               </Text>
             </Pressable>
           ))}
+          {issues.hasNextPage ? (
+            <Button
+              label={issues.isFetchingNextPage ? "Loading…" : "Load more"}
+              onPress={async () => {
+                await issues.fetchNextPage();
+              }}
+              disabled={issues.isFetchingNextPage}
+              styles={styles}
+            />
+          ) : null}
         </View>
       ) : (
         <View style={styles.stack}>

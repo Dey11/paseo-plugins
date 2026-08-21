@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseLinearCredential } from "./credential.server";
 import type { LinearIssue } from "./contracts";
-import { runLinearOperation } from "./linear.server";
+import { nextCursorForPage, runLinearOperation } from "./linear.server";
 import { describeMutation } from "./mutations";
 
 const issue: LinearIssue = {
@@ -55,5 +55,15 @@ describe("Linear integration", () => {
     await expect(operation).rejects.toThrow(
       "Linear request failed: GraphQL forbidden for [redacted]",
     );
+  });
+
+  test("exposes a cursor only while another issue page exists", () => {
+    expect(
+      nextCursorForPage({ hasNextPage: true, endCursor: "next-page" }),
+    ).toBe("next-page");
+    expect(
+      nextCursorForPage({ hasNextPage: false, endCursor: "last-page" }),
+    ).toBeNull();
+    expect(nextCursorForPage({ hasNextPage: true })).toBeNull();
   });
 });
