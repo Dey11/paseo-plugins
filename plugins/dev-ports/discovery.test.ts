@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildServeArgs,
   buildUnserveArgs,
+  explainServeFailure,
   isPathInside,
   isPublicBind,
   parseServeMappings,
@@ -63,5 +64,16 @@ describe("development port safety", () => {
     expect(
       parseServeOccupiedPorts({ TCP: { "3000": { HTTPS: true }, "8443": {} } }),
     ).toEqual([3000, 8443]);
+  });
+
+  test("turns Tailscale operator denial into a one-time setup instruction", () => {
+    expect(
+      explainServeFailure(
+        new Error("sending serve config: Access denied: serve config denied"),
+        "dev",
+      ).message,
+    ).toBe(
+      "Tailscale Serve is not authorized for dev. Run `sudo tailscale set --operator=dev` once on this host, then try again.",
+    );
   });
 });

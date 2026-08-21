@@ -56,6 +56,16 @@ export function buildUnserveArgs(port: number): string[] {
   return ["serve", "--yes", `--https=${port}`, "off"];
 }
 
+export function explainServeFailure(error: unknown, operator: string): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (/serve config denied|access denied/i.test(detail)) {
+    return new Error(
+      `Tailscale Serve is not authorized for ${operator}. Run \`sudo tailscale set --operator=${operator}\` once on this host, then try again.`,
+    );
+  }
+  return error instanceof Error ? error : new Error(detail);
+}
+
 export interface ServeMapping {
   exposedPort: number;
   sourcePort: number;

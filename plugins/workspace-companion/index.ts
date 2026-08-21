@@ -16,12 +16,7 @@ import { inspectGitDiff } from "./review.server";
 import { JsonStore, pluginDataDirectory, workspaceFile } from "./store.server";
 import { setReviewState } from "./workflow";
 
-const dataDirectory = pluginDataDirectory("workspace-companion");
-const reviewStates = new JsonStore(
-  `${dataDirectory}/review-states.json`,
-  ReviewStatesSchema,
-  () => ({}),
-);
+let reviewStates: ReturnType<typeof createReviewStateStore> | undefined;
 const noteStores = new Map<string, ReturnType<typeof createNoteStore>>();
 const reviewPlanStores = new Map<
   string,
@@ -39,9 +34,9 @@ export default function contribute(plugin: PluginContext) {
       updatedAt: new Date().toISOString(),
     }),
   );
-  plugin.handle(GetReviewStatesRpc, () => reviewStates.read());
+  plugin.handle(GetReviewStatesRpc, () => reviewStateStore().read());
   plugin.handle(SetReviewStateRpc, async ({ workspaceId, state }) => {
-    await reviewStates.update((current) =>
+    await reviewStateStore().update((current) =>
       setReviewState(current, workspaceId, state),
     );
     return { workspaceId, state };
@@ -113,9 +108,26 @@ function noteStore(workspaceId: string) {
 
 function createNoteStore(workspaceId: string) {
   return new JsonStore(
-    workspaceFile(dataDirectory, workspaceId, "note"),
+    workspaceFile(
+      pluginDataDirectory("workspace-companion"),
+      workspaceId,
+      "note",
+    ),
     NoteSchema,
     () => ({ workspaceId, markdown: "", updatedAt: new Date(0).toISOString() }),
+  );
+}
+
+function reviewStateStore() {
+  reviewStates ??= createReviewStateStore();
+  return reviewStates;
+}
+
+function createReviewStateStore() {
+  return new JsonStore(
+    `${pluginDataDirectory("workspace-companion")}/review-states.json`,
+    ReviewStatesSchema,
+    () => ({}),
   );
 }
 
@@ -129,7 +141,11 @@ function reviewPlanStore(workspaceId: string) {
 
 function createReviewPlanStore(workspaceId: string) {
   return new JsonStore(
-    workspaceFile(dataDirectory, workspaceId, "review"),
+    workspaceFile(
+      pluginDataDirectory("workspace-companion"),
+      workspaceId,
+      "review",
+    ),
     ReviewPlanSchema.nullable(),
     () => null,
   );

@@ -7,6 +7,7 @@ import type { DevPort, PortForward } from "./contracts";
 import {
   buildServeArgs,
   buildUnserveArgs,
+  explainServeFailure,
   isPathInside,
   isPublicBind,
   parseServeMappings,
@@ -95,7 +96,14 @@ export async function serveDevPort(
     }
     return existing;
   }
-  await run("tailscale", buildServeArgs(expected.port));
+  try {
+    await run("tailscale", buildServeArgs(expected.port));
+  } catch (error) {
+    const operator = /^[A-Za-z0-9._-]+$/.test(process.env.USER ?? "")
+      ? (process.env.USER ?? "<daemon-user>")
+      : "<daemon-user>";
+    throw explainServeFailure(error, operator);
+  }
   const after = await tailscaleState();
   const forward = after.forwards.find(
     (candidate) => candidate.sourcePort === expected.port,

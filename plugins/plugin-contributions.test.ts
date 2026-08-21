@@ -47,4 +47,33 @@ describe("Paseo client contributions", () => {
     expect(limits.length).toBeGreaterThan(0);
     for (const limit of limits) expect(limit).toBeLessThanOrEqual(200);
   });
+
+  test("does not execute server-only imports while loading a client entry", async () => {
+    for (const file of contributionFiles.filter((path) =>
+      path.endsWith("/index.ts"),
+    )) {
+      const source = await Bun.file(file).text();
+      const entryBody = source.slice(
+        source.lastIndexOf("import "),
+        source.indexOf("export default function contribute"),
+      );
+      const serverImports = [
+        ...source.matchAll(
+          /import\s+\{([\s\S]*?)\}\s+from\s+"[^"]+\.server";/g,
+        ),
+      ].flatMap((match) =>
+        (match[1] ?? "")
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean),
+      );
+
+      for (const name of serverImports) {
+        expect(
+          entryBody,
+          `${file} executes server-only ${name} while the client bundle loads`,
+        ).not.toMatch(new RegExp(`(?:new\\s+)?\\b${name}\\s*\\(`));
+      }
+    }
+  });
 });
