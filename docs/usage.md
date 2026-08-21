@@ -4,9 +4,9 @@ All four plugins are installed against the local Paseo daemon. If the client was
 
 ## Workspace Companion
 
-- Open **Notes** from a workspace's right panel or the command center. Edit Markdown in **Source**, inspect it in **Preview**, and save it to the daemon.
-- **Ask agent for draft** sends the current note to the most recently active workspace agent. The returned Markdown stays as an unsaved draft until you review and save it.
-- Open **Agent board** from the sidebar. Active work remains in **Working**; finished work can be moved among **Unreviewed**, **Reviewed**, **Recheck**, and **Approved** with the card actions.
+- Open **Notes** from an agent's right panel or the command center. Edit Markdown in **Source**, inspect it in **Preview**, and save it to the daemon.
+- **Ask agent for draft** sends the current note to the agent whose panel is open. The returned Markdown stays as an unsaved draft until you review and save it.
+- Open **Agent board** from the sidebar. Agents are grouped by live state under **Running**, **Needs attention**, **Idle**, and **Error**. Finished work can be moved among **Unreviewed**, **Reviewed**, **Recheck**, and **Approved** with the card actions.
 - Open **Review** from an agent panel. **Generate review plan** analyzes the current Git diff. **Start independent review** creates a child reviewer with Sol, high thinking, and auto-review mode.
 
 ## Prompt Library
@@ -16,9 +16,8 @@ All four plugins are installed against the local Paseo daemon. If the client was
 
 ## Linear
 
-- Open **Linear** from an agent's right panel or command center. Search by issue text, open an issue, review comments, and open the canonical Linear URL.
+- Open **Linear** from an agent's right panel or command center. Search by issue text, page through all matching issues, open an issue, review comments, and open the canonical Linear URL.
 - Choosing a status, priority, or comment creates a confirmation card. Nothing is written to Linear until **Confirm update** is pressed.
-- Linear issues are also available from the composer attachment picker.
 
 ## Dev Ports
 
