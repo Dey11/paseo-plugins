@@ -1,4 +1,8 @@
-import { PluginAttachmentSearchPayloadSchema, defineAttachmentSource, defineRpc } from "@getpaseo/plugin/server";
+import {
+  PluginAttachmentSearchPayloadSchema,
+  defineAttachmentSource,
+  defineRpc,
+} from "@getpaseo/plugin/server";
 import { z } from "zod";
 
 export const PromptSchema = z.object({
@@ -20,7 +24,12 @@ export const ListPromptsRpc = defineRpc({
 
 export const SavePromptRpc = defineRpc({
   name: "prompt-library.save",
-  input: z.object({ id: z.string().optional(), title: z.string().min(1).max(120), content: z.string().min(1).max(100_000), tags: z.array(z.string().min(1).max(40)).max(20) }),
+  input: z.object({
+    id: z.string().optional(),
+    title: z.string().min(1).max(120),
+    content: z.string().min(1).max(100_000),
+    tags: z.array(z.string().min(1).max(40)).max(20),
+  }),
   output: PromptSchema,
 });
 

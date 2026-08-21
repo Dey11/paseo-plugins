@@ -5,9 +5,19 @@ import { buildReviewPlan } from "./review";
 const execFileAsync = promisify(execFile);
 
 export async function inspectGitDiff(workspaceId: string, cwd: string) {
-  const gitAvailable = await succeeds(cwd, ["rev-parse", "--is-inside-work-tree"]);
+  const gitAvailable = await succeeds(cwd, [
+    "rev-parse",
+    "--is-inside-work-tree",
+  ]);
   if (!gitAvailable) {
-    return buildReviewPlan({ workspaceId, generatedAt: new Date().toISOString(), nameStatus: "", numStat: "", porcelain: "", gitAvailable: false });
+    return buildReviewPlan({
+      workspaceId,
+      generatedAt: new Date().toISOString(),
+      nameStatus: "",
+      numStat: "",
+      porcelain: "",
+      gitAvailable: false,
+    });
   }
 
   const hasHead = await succeeds(cwd, ["rev-parse", "--verify", "HEAD"]);
@@ -17,11 +27,21 @@ export async function inspectGitDiff(workspaceId: string, cwd: string) {
     git(cwd, ["diff", "--numstat", ...baseArgs]),
     git(cwd, ["status", "--porcelain=v1", "--untracked-files=all"]),
   ]);
-  return buildReviewPlan({ workspaceId, generatedAt: new Date().toISOString(), nameStatus, numStat, porcelain, gitAvailable: true });
+  return buildReviewPlan({
+    workspaceId,
+    generatedAt: new Date().toISOString(),
+    nameStatus,
+    numStat,
+    porcelain,
+    gitAvailable: true,
+  });
 }
 
 async function git(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync("git", args, { cwd, maxBuffer: 5_000_000 });
+  const { stdout } = await execFileAsync("git", args, {
+    cwd,
+    maxBuffer: 5_000_000,
+  });
   return stdout;
 }
 

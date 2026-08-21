@@ -1,7 +1,12 @@
 import { defineRpc } from "@getpaseo/plugin/server";
 import { z } from "zod";
 
-export const ReviewStateSchema = z.enum(["unreviewed", "reviewed", "recheck", "approved"]);
+export const ReviewStateSchema = z.enum([
+  "unreviewed",
+  "reviewed",
+  "recheck",
+  "approved",
+]);
 export type ReviewState = z.infer<typeof ReviewStateSchema>;
 
 export const NoteSchema = z.object({
@@ -18,7 +23,10 @@ export const GetNoteRpc = defineRpc({
 
 export const SaveNoteRpc = defineRpc({
   name: "workspace-companion.note.save",
-  input: z.object({ workspaceId: z.string().min(1), markdown: z.string().max(200_000) }),
+  input: z.object({
+    workspaceId: z.string().min(1),
+    markdown: z.string().max(200_000),
+  }),
   output: NoteSchema,
 });
 

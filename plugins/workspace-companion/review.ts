@@ -10,20 +10,62 @@ export interface GitReviewInput {
 }
 
 const CHECKS = [
-  { id: "security", title: "Authentication and permissions", priority: "high" as const, pattern: /auth|permission|policy|session|token|middleware/i },
-  { id: "data", title: "Migrations and data safety", priority: "high" as const, pattern: /migration|schema|prisma|sql|database|supabase/i },
-  { id: "api", title: "API contracts and error states", priority: "medium" as const, pattern: /api|route|handler|controller|graphql|rpc/i },
-  { id: "config", title: "Configuration and secrets", priority: "high" as const, pattern: /\.env|config|credential|secret|docker|deploy/i },
-  { id: "ui", title: "UI states and accessibility", priority: "medium" as const, pattern: /\.tsx$|\.jsx$|\.css$|component|screen|page/i },
-  { id: "tests", title: "Tests and verification", priority: "normal" as const, pattern: /test|spec|__tests__/i },
-  { id: "dependencies", title: "Dependency changes", priority: "medium" as const, pattern: /package\.json|bun\.lock|package-lock|yarn\.lock|pnpm-lock/i },
-  { id: "docs", title: "Documentation and operator steps", priority: "normal" as const, pattern: /readme|docs\/|\.md$/i },
+  {
+    id: "security",
+    title: "Authentication and permissions",
+    priority: "high" as const,
+    pattern: /auth|permission|policy|session|token|middleware/i,
+  },
+  {
+    id: "data",
+    title: "Migrations and data safety",
+    priority: "high" as const,
+    pattern: /migration|schema|prisma|sql|database|supabase/i,
+  },
+  {
+    id: "api",
+    title: "API contracts and error states",
+    priority: "medium" as const,
+    pattern: /api|route|handler|controller|graphql|rpc/i,
+  },
+  {
+    id: "config",
+    title: "Configuration and secrets",
+    priority: "high" as const,
+    pattern: /\.env|config|credential|secret|docker|deploy/i,
+  },
+  {
+    id: "ui",
+    title: "UI states and accessibility",
+    priority: "medium" as const,
+    pattern: /\.tsx$|\.jsx$|\.css$|component|screen|page/i,
+  },
+  {
+    id: "tests",
+    title: "Tests and verification",
+    priority: "normal" as const,
+    pattern: /test|spec|__tests__/i,
+  },
+  {
+    id: "dependencies",
+    title: "Dependency changes",
+    priority: "medium" as const,
+    pattern: /package\.json|bun\.lock|package-lock|yarn\.lock|pnpm-lock/i,
+  },
+  {
+    id: "docs",
+    title: "Documentation and operator steps",
+    priority: "normal" as const,
+    pattern: /readme|docs\/|\.md$/i,
+  },
 ] as const;
 
 export function buildReviewPlan(input: GitReviewInput): ReviewPlan {
   const files = collectFiles(input.nameStatus, input.porcelain);
   const { additions, deletions } = countChanges(input.numStat);
-  const checks: ReviewPlan["checks"] = CHECKS.filter((check) => files.some((file) => check.pattern.test(file))).map((check) => ({
+  const checks: ReviewPlan["checks"] = CHECKS.filter((check) =>
+    files.some((file) => check.pattern.test(file)),
+  ).map((check) => ({
     id: check.id,
     title: check.title,
     priority: check.priority,
@@ -31,7 +73,13 @@ export function buildReviewPlan(input: GitReviewInput): ReviewPlan {
   }));
 
   if (files.length > 0 && checks.length === 0) {
-    checks.push({ id: "behavior", title: "Changed behavior", priority: "normal", detail: "Trace the changed paths and verify the intended behavior end to end." });
+    checks.push({
+      id: "behavior",
+      title: "Changed behavior",
+      priority: "normal",
+      detail:
+        "Trace the changed paths and verify the intended behavior end to end.",
+    });
   }
 
   return {
@@ -62,18 +110,24 @@ function collectFiles(nameStatus: string, porcelain: string): string[] {
   return [...names].filter(Boolean).sort();
 }
 
-function countChanges(numStat: string): { additions: number; deletions: number } {
+function countChanges(numStat: string): {
+  additions: number;
+  deletions: number;
+} {
   let additions = 0;
   let deletions = 0;
   for (const line of numStat.split("\n")) {
     const [added, removed] = line.split("\t");
     if (added && added !== "-") additions += Number.parseInt(added, 10) || 0;
-    if (removed && removed !== "-") deletions += Number.parseInt(removed, 10) || 0;
+    if (removed && removed !== "-")
+      deletions += Number.parseInt(removed, 10) || 0;
   }
   return { additions, deletions };
 }
 
 function detailFor(id: string, files: string[]): string {
-  const matched = files.filter((file) => CHECKS.find((check) => check.id === id)?.pattern.test(file));
+  const matched = files.filter((file) =>
+    CHECKS.find((check) => check.id === id)?.pattern.test(file),
+  );
   return `Review ${matched.slice(0, 4).join(", ")}${matched.length > 4 ? ` and ${matched.length - 4} more` : ""}.`;
 }
