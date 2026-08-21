@@ -1,0 +1,13 @@
+{
+  "name": "paseo-productivity-plugins",
+  "private": true,
+  "workspaces": ["plugins/*"],
+  "devDependencies": {
+    "@types/bun": "^1.2.22",
+    "@types/node": "^24.3.0"
+  },
+  "scripts": {
+    "test": "bun test plugins",
+    "typecheck": "bun run --filter '*' typecheck"
+  }
+}
