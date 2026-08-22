@@ -1,6 +1,11 @@
 import { defineRpc } from "@getpaseo/plugin/server";
 import { z } from "zod";
-import { normalizeStoredReviewState, type ReviewState } from "./workflow";
+import {
+  createBoardWorkflow,
+  normalizeStoredReviewState,
+  type BoardWorkflow,
+  type ReviewState,
+} from "./workflow";
 
 export const ReviewStateSchema = z.enum(["unreviewed", "recheck", "approved"]);
 export type { ReviewState } from "./workflow";
@@ -30,18 +35,49 @@ const StoredReviewStateSchema = z
   .union([ReviewStateSchema, z.literal("reviewed")])
   .transform((state): ReviewState => normalizeStoredReviewState(state));
 
-export const ReviewStatesSchema = z.record(z.string(), StoredReviewStateSchema);
+const LegacyReviewStatesSchema = z.record(z.string(), StoredReviewStateSchema);
+export const BoardStateSchema = z.enum([
+  "running",
+  "unreviewed",
+  "approved",
+  "recheck",
+  "error",
+]);
+const BoardColumnOrderSchema = z.object({
+  running: z.array(z.string()),
+  unreviewed: z.array(z.string()),
+  approved: z.array(z.string()),
+  recheck: z.array(z.string()),
+  error: z.array(z.string()),
+});
+const CurrentBoardWorkflowSchema = z.object({
+  reviewStates: LegacyReviewStatesSchema,
+  columnOrder: BoardColumnOrderSchema,
+});
+export const BoardWorkflowSchema = z
+  .union([CurrentBoardWorkflowSchema, LegacyReviewStatesSchema])
+  .transform((value): BoardWorkflow => {
+    const current = CurrentBoardWorkflowSchema.safeParse(value);
+    return current.success
+      ? current.data
+      : createBoardWorkflow(LegacyReviewStatesSchema.parse(value));
+  });
 
-export const GetReviewStatesRpc = defineRpc({
-  name: "workspace-companion.review-states.get",
+export const GetBoardWorkflowRpc = defineRpc({
+  name: "workspace-companion.board-workflow.get",
   input: z.object({}),
-  output: ReviewStatesSchema,
+  output: BoardWorkflowSchema,
 });
 
-export const SetReviewStateRpc = defineRpc({
-  name: "workspace-companion.review-states.set",
-  input: z.object({ workspaceId: z.string().min(1), state: ReviewStateSchema }),
-  output: z.object({ workspaceId: z.string(), state: ReviewStateSchema }),
+export const PlaceBoardCardRpc = defineRpc({
+  name: "workspace-companion.board-card.place",
+  input: z.object({
+    workspaceId: z.string().min(1),
+    sourceState: BoardStateSchema,
+    targetState: BoardStateSchema,
+    targetIndex: z.number().int().nonnegative(),
+  }),
+  output: BoardWorkflowSchema,
 });
 
 export const ReviewCheckSchema = z.object({

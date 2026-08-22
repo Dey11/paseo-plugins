@@ -5,7 +5,7 @@ import type {
 } from "@getpaseo/plugin";
 import { useAgent, usePaseo, useRpc, useWorkspace } from "@getpaseo/plugin";
 import type { PaseoAgent, PaseoWorkspace } from "@getpaseo/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,15 +20,24 @@ import {
 } from "react-native";
 import {
   GenerateReviewPlanRpc,
+  GetBoardWorkflowRpc,
   GetNoteRpc,
   GetReviewPlanRpc,
-  GetReviewStatesRpc,
+  PlaceBoardCardRpc,
   type ReviewPlan,
   type ReviewState,
   SaveNoteRpc,
-  SetReviewStateRpc,
 } from "./contracts";
-import { resolveBoardState, type BoardState } from "./workflow";
+import {
+  BOARD_STATES,
+  canPlaceBoardCard,
+  orderBoardWorkspaceIds,
+  placeBoardCard,
+  resolveBoardState,
+  type BoardPlacement,
+  type BoardState,
+  type BoardWorkflow,
+} from "./workflow";
 import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
 
 const REVIEW_STATES: readonly ReviewState[] = [
@@ -36,11 +45,7 @@ const REVIEW_STATES: readonly ReviewState[] = [
   "approved",
   "recheck",
 ];
-const BOARD_STATES: readonly BoardState[] = [
-  "running",
-  ...REVIEW_STATES,
-  "error",
-];
+const BOARD_QUERY_KEY = ["agent-board"] as const;
 
 export function NotesPanel({
   workspaceId,
@@ -265,23 +270,21 @@ export function ReviewPanel({
 
 export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
   const paseo = usePaseo();
-  const getStates = useRpc(GetReviewStatesRpc);
-  const setState = useRpc(SetReviewStateRpc);
+  const getWorkflow = useRpc(GetBoardWorkflowRpc);
+  const persistPlacement = useRpc(PlaceBoardCardRpc);
+  const queryClient = useQueryClient();
   const styles = useStyles(theme, layout.compact);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [moving, setMoving] = useState<string | null>(null);
-  const [draggedWorkspaceId, setDraggedWorkspaceId] = useState<string | null>(
-    null,
-  );
-  const [dropTarget, setDropTarget] = useState<ReviewState | null>(null);
+  const [draggedCard, setDraggedCard] = useState<DraggedBoardCard | null>(null);
+  const [dropTarget, setDropTarget] = useState<BoardDropTarget | null>(null);
   const [notice, setNotice] = useState("");
-  const board = useQuery({
-    queryKey: ["agent-board", refreshKey],
+  const board = useQuery<BoardQueryData>({
+    queryKey: BOARD_QUERY_KEY,
     queryFn: async () => {
-      const [workspaces, agents, states] = await Promise.all([
+      const [workspaces, agents, workflow] = await Promise.all([
         paseo.workspaces.list(),
         paseo.agents.list(),
-        getStates({}),
+        getWorkflow({}),
       ]);
       const workspaceEntries: PaseoWorkspace[] = workspaces.entries;
       const agentEntries: PaseoAgent[] = agents.entries.map(
@@ -290,30 +293,55 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
       return {
         workspaces: workspaceEntries,
         agents: agentEntries,
-        states,
+        workflow,
       };
     },
-    refetchInterval: 5_000,
+    refetchInterval: moving || draggedCard ? false : 5_000,
   });
 
-  async function move(workspaceId: string, state: ReviewState) {
-    setMoving(workspaceId);
-    setNotice("");
+  async function place(placement: BoardPlacement) {
+    if (moving) return;
+    const previous = queryClient.getQueryData<BoardQueryData>(BOARD_QUERY_KEY);
+    if (!previous) return;
+
+    let optimisticWorkflow: BoardWorkflow;
     try {
-      await setState({ workspaceId, state });
-      await board.refetch();
+      optimisticWorkflow = placeBoardCard(previous.workflow, placement);
     } catch (error) {
+      setNotice(message(error));
+      return;
+    }
+
+    setMoving(placement.workspaceId);
+    setNotice("");
+    void queryClient.cancelQueries({ queryKey: BOARD_QUERY_KEY });
+    queryClient.setQueryData<BoardQueryData>(BOARD_QUERY_KEY, {
+      ...previous,
+      workflow: optimisticWorkflow,
+    });
+    try {
+      const workflow = await persistPlacement(placement);
+      queryClient.setQueryData<BoardQueryData>(BOARD_QUERY_KEY, (current) =>
+        current ? { ...current, workflow } : current,
+      );
+    } catch (error) {
+      queryClient.setQueryData(BOARD_QUERY_KEY, previous);
       setNotice(message(error));
     } finally {
       setMoving(null);
-      setDraggedWorkspaceId(null);
+      setDraggedCard(null);
       setDropTarget(null);
     }
   }
 
-  async function drop(state: ReviewState) {
-    if (!draggedWorkspaceId) return;
-    await move(draggedWorkspaceId, state);
+  function drop(target: BoardDropTarget) {
+    if (!draggedCard) return;
+    void place({
+      workspaceId: draggedCard.workspaceId,
+      sourceState: draggedCard.state,
+      targetState: target.state,
+      targetIndex: target.index,
+    });
   }
 
   if (board.isLoading || (!board.data && !board.isError))
@@ -328,7 +356,7 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
         <Text style={styles.errorText}>Unable to load the agent board</Text>
         <BoardToolbarButton
           label="Try again"
-          onPress={() => setRefreshKey((value) => value + 1)}
+          onPress={() => void board.refetch()}
           styles={styles}
         />
       </View>
@@ -341,7 +369,7 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
           b.updatedAt.localeCompare(a.updatedAt),
         );
       const reviewState: ReviewState =
-        board.data.states[workspace.id] ?? "unreviewed";
+        board.data.workflow.reviewStates[workspace.id] ?? "unreviewed";
       return {
         workspace,
         agent: agents[0],
@@ -352,6 +380,25 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
   cards.sort((left, right) =>
     cardUpdatedAt(right).localeCompare(cardUpdatedAt(left)),
   );
+  const cardsByState = Object.fromEntries(
+    BOARD_STATES.map((state) => {
+      const stateCards = cards.filter((card) => card.state === state);
+      const cardsById = new Map(
+        stateCards.map((card) => [card.workspace.id, card]),
+      );
+      const workspaceIds = orderBoardWorkspaceIds(
+        stateCards.map((card) => card.workspace.id),
+        board.data.workflow.columnOrder[state],
+      );
+      return [
+        state,
+        workspaceIds.flatMap((workspaceId) => {
+          const card = cardsById.get(workspaceId);
+          return card ? [card] : [];
+        }),
+      ];
+    }),
+  ) as Record<BoardState, BoardCard[]>;
 
   return (
     <ScrollView
@@ -368,7 +415,7 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
         </View>
         <BoardToolbarButton
           label="Refresh"
-          onPress={() => setRefreshKey((value) => value + 1)}
+          onPress={() => void board.refetch()}
           styles={styles}
         />
       </View>
@@ -387,18 +434,18 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
             key={state}
             title={titleCase(state)}
             state={state}
-            cards={cards.filter((card) => card.state === state)}
-            onMove={move}
+            cards={cardsByState[state]}
+            onPlace={place}
             moving={moving}
-            draggedWorkspaceId={draggedWorkspaceId}
-            onDragStart={setDraggedWorkspaceId}
+            draggedCard={draggedCard}
+            onDragStart={setDraggedCard}
             onDragEnd={() => {
-              setDraggedWorkspaceId(null);
+              setDraggedCard(null);
               setDropTarget(null);
             }}
             onDragOver={setDropTarget}
             onDrop={drop}
-            dropActive={dropTarget === state}
+            dropTarget={dropTarget}
             openWorkspace={(workspaceId) =>
               openWorkspace(host.id, workspaceId, layout.platform)
             }
@@ -417,18 +464,36 @@ type BoardCard = {
   state: BoardState;
 };
 
+type BoardQueryData = {
+  workspaces: PaseoWorkspace[];
+  agents: PaseoAgent[];
+  workflow: BoardWorkflow;
+};
+
+type DraggedBoardCard = {
+  workspaceId: string;
+  state: BoardState;
+};
+
+type BoardDropTarget = {
+  state: BoardState;
+  index: number;
+  anchorWorkspaceId?: string;
+  edge: "before" | "after" | "end";
+};
+
 function BoardColumn({
   title,
   state,
   cards,
-  onMove,
+  onPlace,
   moving,
-  draggedWorkspaceId,
+  draggedCard,
   onDragStart,
   onDragEnd,
   onDragOver,
   onDrop,
-  dropActive,
+  dropTarget,
   openWorkspace,
   web,
   styles,
@@ -436,14 +501,14 @@ function BoardColumn({
   title: string;
   state: BoardState;
   cards: BoardCard[];
-  onMove: (id: string, state: ReviewState) => void;
+  onPlace: (placement: BoardPlacement) => void;
   moving: string | null;
-  draggedWorkspaceId: string | null;
-  onDragStart: (id: string) => void;
+  draggedCard: DraggedBoardCard | null;
+  onDragStart: (card: DraggedBoardCard) => void;
   onDragEnd: () => void;
-  onDragOver: (state: ReviewState) => void;
-  onDrop: (state: ReviewState) => void;
-  dropActive: boolean;
+  onDragOver: (target: BoardDropTarget) => void;
+  onDrop: (target: BoardDropTarget) => void;
+  dropTarget: BoardDropTarget | null;
   openWorkspace: (id: string) => void;
   web: boolean;
   styles: Styles;
@@ -467,24 +532,30 @@ function BoardColumn({
         </View>
       </View>
       <View style={styles.columnCards}>
-        {cards.map((card) => {
+        {cards.map((card, index) => {
           const boardCard = (
             <WorkspaceBoardCard
               card={card}
               reviewState={reviewState}
               moving={moving === card.workspace.id}
               openWorkspace={openWorkspace}
-              onMove={onMove}
+              onPlace={onPlace}
               styles={styles}
             />
           );
-          return web && reviewState ? (
+          return web ? (
             <WebDragCard
               key={card.workspace.id}
-              workspaceId={card.workspace.id}
-              active={draggedWorkspaceId === card.workspace.id}
+              card={card}
+              index={index}
+              active={draggedCard?.workspaceId === card.workspace.id}
+              disabled={moving !== null}
+              draggedCard={draggedCard}
+              dropTarget={dropTarget}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
               styles={styles}
             >
               {boardCard}
@@ -503,8 +574,10 @@ function BoardColumn({
   if (web) {
     return (
       <WebDropColumn
-        reviewState={reviewState}
-        dropActive={dropActive}
+        state={state}
+        endIndex={cards.length}
+        draggedCard={draggedCard}
+        dropActive={dropTarget?.state === state}
         onDragOver={onDragOver}
         onDrop={onDrop}
         styles={styles}
@@ -522,19 +595,19 @@ function WorkspaceBoardCard({
   reviewState,
   moving,
   openWorkspace,
-  onMove,
+  onPlace,
   styles,
 }: {
   card: BoardCard;
   reviewState: ReviewState | null;
   moving: boolean;
   openWorkspace: (id: string) => void;
-  onMove: (id: string, state: ReviewState) => void;
+  onPlace: (placement: BoardPlacement) => void;
   styles: Styles;
 }) {
   const { workspace, agent } = card;
   return (
-    <View style={[styles.boardCard, moving && styles.movingCard]}>
+    <View style={styles.boardCard}>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={`Open workspace ${workspace.title ?? workspace.name}`}
@@ -568,7 +641,12 @@ function WorkspaceBoardCard({
                 disabled={moving}
                 onPress={(event) => {
                   event.stopPropagation();
-                  onMove(workspace.id, state);
+                  onPlace({
+                    workspaceId: workspace.id,
+                    sourceState: card.state,
+                    targetState: state,
+                    targetIndex: Number.MAX_SAFE_INTEGER,
+                  });
                 }}
                 styles={styles}
               />
@@ -581,73 +659,134 @@ function WorkspaceBoardCard({
 }
 
 function WebDragCard({
-  workspaceId,
+  card,
+  index,
   active,
+  disabled,
+  draggedCard,
+  dropTarget,
   onDragStart,
   onDragEnd,
+  onDragOver,
+  onDrop,
   styles,
   children,
 }: React.PropsWithChildren<{
-  workspaceId: string;
+  card: BoardCard;
+  index: number;
   active: boolean;
-  onDragStart: (id: string) => void;
+  disabled: boolean;
+  draggedCard: DraggedBoardCard | null;
+  dropTarget: BoardDropTarget | null;
+  onDragStart: (card: DraggedBoardCard) => void;
   onDragEnd: () => void;
+  onDragOver: (target: BoardDropTarget) => void;
+  onDrop: (target: BoardDropTarget) => void;
   styles: Styles;
 }>) {
+  const marker =
+    dropTarget?.anchorWorkspaceId === card.workspace.id
+      ? dropTarget.edge
+      : null;
+
+  function targetForPointer(event: React.DragEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const edge =
+      event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+    return {
+      state: card.state,
+      index: edge === "before" ? index : index + 1,
+      anchorWorkspaceId: card.workspace.id,
+      edge,
+    } satisfies BoardDropTarget;
+  }
+
   return (
     <div
-      draggable
+      draggable={!disabled}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", workspaceId);
-        onDragStart(workspaceId);
+        event.dataTransfer.setData("text/plain", card.workspace.id);
+        onDragStart({ workspaceId: card.workspace.id, state: card.state });
       }}
       onDragEnd={onDragEnd}
+      onDragOver={(event) => {
+        if (!draggedCard || !canPlaceBoardCard(draggedCard.state, card.state))
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "move";
+        onDragOver(targetForPointer(event));
+      }}
+      onDrop={(event) => {
+        if (!draggedCard || !canPlaceBoardCard(draggedCard.state, card.state))
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        onDrop(targetForPointer(event));
+      }}
       style={{
         ...(StyleSheet.flatten(
           active ? styles.webDragCardActive : undefined,
         ) as unknown as React.CSSProperties),
-        cursor: active ? "grabbing" : "grab",
+        position: "relative",
+        cursor: disabled ? "default" : active ? "grabbing" : "grab",
       }}
     >
+      {marker ? (
+        <div
+          aria-hidden="true"
+          style={{
+            ...(StyleSheet.flatten(
+              styles.webDropMarker,
+            ) as unknown as React.CSSProperties),
+            [marker === "before" ? "top" : "bottom"]: -5,
+          }}
+        />
+      ) : null}
       {children}
     </div>
   );
 }
 
 function WebDropColumn({
-  reviewState,
+  state,
+  endIndex,
+  draggedCard,
   dropActive,
   onDragOver,
   onDrop,
   styles,
   children,
 }: React.PropsWithChildren<{
-  reviewState: ReviewState | null;
+  state: BoardState;
+  endIndex: number;
+  draggedCard: DraggedBoardCard | null;
   dropActive: boolean;
-  onDragOver: (state: ReviewState) => void;
-  onDrop: (state: ReviewState) => void;
+  onDragOver: (target: BoardDropTarget) => void;
+  onDrop: (target: BoardDropTarget) => void;
   styles: Styles;
 }>) {
+  const endTarget: BoardDropTarget = {
+    state,
+    index: endIndex,
+    edge: "end",
+  };
+  const acceptsDrop =
+    draggedCard !== null && canPlaceBoardCard(draggedCard.state, state);
   return (
     <div
-      onDragOver={
-        reviewState
-          ? (event) => {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-              onDragOver(reviewState);
-            }
-          : undefined
-      }
-      onDrop={
-        reviewState
-          ? (event) => {
-              event.preventDefault();
-              void onDrop(reviewState);
-            }
-          : undefined
-      }
+      onDragOver={(event) => {
+        if (!acceptsDrop) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onDragOver(endTarget);
+      }}
+      onDrop={(event) => {
+        if (!acceptsDrop) return;
+        event.preventDefault();
+        onDrop(endTarget);
+      }}
       style={
         StyleSheet.flatten([
           styles.column,
@@ -1249,7 +1388,6 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           shadowRadius: 2,
           elevation: 1,
         },
-        movingCard: { opacity: 0.64 },
         boardCardBody: { gap: 5, padding: 13 },
         boardCardPressed: { opacity: 0.72 },
         boardCardTitle: {
@@ -1292,6 +1430,15 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           fontWeight: "500",
         },
         webDragCardActive: { opacity: 0.78 },
+        webDropMarker: {
+          position: "absolute",
+          zIndex: 1,
+          left: 4,
+          right: 4,
+          height: 2,
+          borderRadius: 1,
+          backgroundColor: theme.colors.accent,
+        },
       }),
     [theme, compact],
   );

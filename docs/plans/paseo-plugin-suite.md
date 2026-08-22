@@ -31,14 +31,14 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 - Client bundles may only use host-provided React, React Native, TanStack Query, Zod, and Paseo interfaces.
 - The interface must work in Paseo's web, macOS, iOS, and Android hosts.
 - High-frequency board and command interactions remain intentionally low-motion.
-- Running and Error are read-only live states. Desktop/web drag targets accept only the three review states; touch and keyboard users retain explicit move actions.
+- Running and Error remain live states: they can be reordered within their own columns but cannot accept cross-column moves. Review cards can move among the three review columns, and touch or keyboard users retain explicit review-state actions.
 - Plugin state lives in `~/.paseo/plugin-data/<plugin-id>` and is written atomically.
 
 ## Chosen architecture
 
 Each plugin is a separate deep module with one responsibility and a small RPC interface. Shared contracts sit at the client/server seam. Filesystem, Git, Linear, `/proc`, and Tailscale details stay inside server adapters. Client surfaces render validated results and hold only temporary confirmation state.
 
-The workspace companion renders one card per workspace. A real agent or workspace failure takes precedence, followed by active work, then the stored review state. This keeps `Running` and `Error` truthful without mutating Paseo's native lifecycle. Desktop/web cards use the platform's drag events because Paseo's plugin client runtime does not expose its internal `@dnd-kit` packages; compact and keyboard flows use quiet “Move to” actions.
+The workspace companion renders one card per workspace. A real agent or workspace failure takes precedence, followed by active work, then the stored review state. This keeps `Running` and `Error` truthful without mutating Paseo's native lifecycle. Review markers and the order of all five columns are persisted together in one atomic workflow document. The client applies placements optimistically and pauses polling while the daemon saves, so cards land immediately without a refetch snap-back. Desktop/web cards use the platform's drag events because Paseo's plugin client runtime does not expose its internal `@dnd-kit` packages; compact and keyboard flows use quiet “Move to” actions.
 
 Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Dev Ports calls the desktop preload's allowlisted `opener.openUrl` bridge when present, then falls back to a normal browser tab or native Linking.
 
@@ -76,4 +76,4 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. All 30 focused tests, all four strict typechecks, and formatting pass. Both changed plugins reload as `running`, and their retained logs end in `Plugin ready` without errors.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. On 2026-08-22, Agent Board ordering was made persistent and movement optimistic. All 34 focused tests, all four strict typechecks, and formatting pass. Workspace Companion reloads as `running`, and its retained log ends in `Plugin ready` without errors.

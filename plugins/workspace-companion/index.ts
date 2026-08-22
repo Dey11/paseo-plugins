@@ -2,21 +2,21 @@ import type { PluginContext } from "@getpaseo/plugin";
 import { z } from "zod";
 import {
   GenerateReviewPlanRpc,
+  GetBoardWorkflowRpc,
   GetNoteRpc,
   GetReviewPlanRpc,
-  GetReviewStatesRpc,
   NoteSchema,
+  PlaceBoardCardRpc,
   ReviewPlanSchema,
-  ReviewStatesSchema,
+  BoardWorkflowSchema,
   SaveNoteRpc,
-  SetReviewStateRpc,
 } from "./contracts";
 import { AgentBoardSurface, NotesPanel, ReviewPanel } from "./main.client";
 import { inspectGitDiff } from "./review.server";
 import { JsonStore, pluginDataDirectory, workspaceFile } from "./store.server";
-import { setReviewState } from "./workflow";
+import { createBoardWorkflow, placeBoardCard } from "./workflow";
 
-let reviewStates: ReturnType<typeof createReviewStateStore> | undefined;
+let boardWorkflow: ReturnType<typeof createBoardWorkflowStore> | undefined;
 const noteStores = new Map<string, ReturnType<typeof createNoteStore>>();
 const reviewPlanStores = new Map<
   string,
@@ -34,13 +34,12 @@ export default function contribute(plugin: PluginContext) {
       updatedAt: new Date().toISOString(),
     }),
   );
-  plugin.handle(GetReviewStatesRpc, () => reviewStateStore().read());
-  plugin.handle(SetReviewStateRpc, async ({ workspaceId, state }) => {
-    await reviewStateStore().update((current) =>
-      setReviewState(current, workspaceId, state),
-    );
-    return { workspaceId, state };
-  });
+  plugin.handle(GetBoardWorkflowRpc, () => boardWorkflowStore().read());
+  plugin.handle(PlaceBoardCardRpc, (placement) =>
+    boardWorkflowStore().update((current) =>
+      placeBoardCard(current, placement),
+    ),
+  );
   plugin.handle(GetReviewPlanRpc, ({ workspaceId }) =>
     reviewPlanStore(workspaceId).read(),
   );
@@ -118,16 +117,16 @@ function createNoteStore(workspaceId: string) {
   );
 }
 
-function reviewStateStore() {
-  reviewStates ??= createReviewStateStore();
-  return reviewStates;
+function boardWorkflowStore() {
+  boardWorkflow ??= createBoardWorkflowStore();
+  return boardWorkflow;
 }
 
-function createReviewStateStore() {
+function createBoardWorkflowStore() {
   return new JsonStore(
     `${pluginDataDirectory("workspace-companion")}/review-states.json`,
-    ReviewStatesSchema,
-    () => ({}),
+    BoardWorkflowSchema,
+    () => createBoardWorkflow({}),
   );
 }
 
