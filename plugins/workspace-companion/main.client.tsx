@@ -42,8 +42,8 @@ import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
 
 const REVIEW_STATES: readonly ReviewState[] = [
   "unreviewed",
-  "approved",
   "recheck",
+  "approved",
 ];
 const BOARD_QUERY_KEY = ["agent-board"] as const;
 

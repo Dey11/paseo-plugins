@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  BOARD_STATES,
   createBoardWorkflow,
   normalizeStoredReviewState,
   orderBoardWorkspaceIds,
@@ -9,6 +10,16 @@ import {
 } from "./workflow";
 
 describe("review workflow", () => {
+  test("keeps the requested board column order", () => {
+    expect(BOARD_STATES).toEqual([
+      "running",
+      "unreviewed",
+      "recheck",
+      "error",
+      "approved",
+    ]);
+  });
+
   test("moves one workspace without changing the others", () => {
     expect(
       setReviewState(
@@ -101,9 +112,9 @@ describe("review workflow", () => {
       columnOrder: {
         running: [],
         unreviewed: [],
-        approved: ["workspace-b", "workspace-a", "workspace-c"],
         recheck: [],
         error: [],
+        approved: ["workspace-b", "workspace-a", "workspace-c"],
       },
     });
   });

@@ -39,16 +39,16 @@ const LegacyReviewStatesSchema = z.record(z.string(), StoredReviewStateSchema);
 export const BoardStateSchema = z.enum([
   "running",
   "unreviewed",
-  "approved",
   "recheck",
   "error",
+  "approved",
 ]);
 const BoardColumnOrderSchema = z.object({
   running: z.array(z.string()),
   unreviewed: z.array(z.string()),
-  approved: z.array(z.string()),
   recheck: z.array(z.string()),
   error: z.array(z.string()),
+  approved: z.array(z.string()),
 });
 const CurrentBoardWorkflowSchema = z.object({
   reviewStates: LegacyReviewStatesSchema,

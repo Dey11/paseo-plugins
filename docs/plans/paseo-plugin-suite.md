@@ -11,7 +11,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 ## Scope
 
 1. Workspace-scoped Markdown notes with source and preview modes; the current agent can propose a replacement note that the user reviews before saving.
-2. One workspace board with exactly five columns: live `Running` and `Error`, plus plugin-owned `Unreviewed`, `Approved`, and `Recheck` review states.
+2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states.
 3. A global prompt library exposed through both a sidebar surface and composer attachment picker.
 4. A direct Linear GraphQL panel for search, issue detail, comments, status, and priority updates. Every write requires a second explicit confirmation.
 5. A manual review plan generated from the current Git diff, plus an optional action that creates an independent Sol reviewer agent.

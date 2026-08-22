@@ -6,7 +6,7 @@ All four plugins are installed against the local Paseo daemon. If the client was
 
 - Open **Notes** from an agent's right panel or the command center. Edit Markdown in **Source**, inspect it in **Preview**, and save it to the daemon.
 - **Ask agent for draft** sends the current note to the agent whose panel is open. The returned Markdown stays as an unsaved draft until you review and save it.
-- Open **Agent board** from the sidebar. There is one workspace board with **Running**, **Unreviewed**, **Approved**, **Recheck**, and **Error** columns. Drag cards to reorder any column on desktop/web; the order persists across reloads. Finished workspaces can also move among the three review columns, while Running and Error stay tied to live Paseo activity. Placements appear immediately while the daemon saves them. Use **Move to** for a non-drag review-state change, and select the card body to open its workspace.
+- Open **Agent board** from the sidebar. There is one workspace board with **Running**, **Unreviewed**, **Recheck**, **Error**, and **Approved** columns. Drag cards to reorder any column on desktop/web; the order persists across reloads. Finished workspaces can also move among the three review columns, while Running and Error stay tied to live Paseo activity. Placements appear immediately while the daemon saves them. Use **Move to** for a non-drag review-state change, and select the card body to open its workspace.
 - Open **Review** from an agent panel. **Generate review plan** analyzes the current Git diff. **Start independent review** creates a child reviewer with Sol, high thinking, and auto-review mode.
 
 ## Prompt Library

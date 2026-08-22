@@ -3,9 +3,9 @@ export type ReviewState = "unreviewed" | "recheck" | "approved";
 export const BOARD_STATES = [
   "running",
   "unreviewed",
-  "approved",
   "recheck",
   "error",
+  "approved",
 ] as const;
 
 export function normalizeStoredReviewState(
@@ -81,9 +81,9 @@ export function createBoardWorkflow(
     columnOrder: {
       running: [],
       unreviewed: [],
-      approved: [],
       recheck: [],
       error: [],
+      approved: [],
     },
   };
 }
