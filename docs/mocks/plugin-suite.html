@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paseo plugin suite mock</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0b0c;
+        --panel: #141416;
+        --raised: #1b1b1e;
+        --line: #2a2a2e;
+        --text: #f5f5f6;
+        --muted: #96969f;
+        --accent: #9ce6c1;
+        --danger: #ff8585;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.45 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr) 360px;
+        min-height: 100vh;
+      }
+      .sidebar,
+      .panel {
+        background: var(--panel);
+        padding: 18px;
+      }
+      .sidebar {
+        border-right: 1px solid var(--line);
+      }
+      .panel {
+        border-left: 1px solid var(--line);
+      }
+      .brand {
+        margin: 0 0 22px;
+        font-size: 16px;
+      }
+      .nav {
+        display: grid;
+        gap: 4px;
+      }
+      .nav div {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        border-radius: 10px;
+        color: var(--muted);
+      }
+      .nav .active {
+        color: var(--text);
+        background: var(--raised);
+      }
+      main {
+        padding: 28px;
+        overflow: auto;
+      }
+      h1 {
+        font-size: 24px;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 0;
+      }
+      p {
+        color: var(--muted);
+        margin: 6px 0 0;
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+      .button {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        background: var(--raised);
+        color: var(--text);
+        padding: 0 14px;
+        border-radius: 10px;
+      }
+      .primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #0b2117;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .column {
+        min-height: 420px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .column-head {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+      .card {
+        background: var(--raised);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 13px;
+        margin-bottom: 8px;
+      }
+      .card p {
+        font-size: 12px;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        background: var(--accent);
+        margin-right: 6px;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        background: var(--bg);
+        border-radius: 10px;
+        padding: 3px;
+        margin: 16px 0;
+      }
+      .tabs span {
+        flex: 1;
+        padding: 8px;
+        text-align: center;
+        color: var(--muted);
+        border-radius: 8px;
+      }
+      .tabs .active {
+        background: var(--raised);
+        color: var(--text);
+      }
+      textarea {
+        width: 100%;
+        min-height: 280px;
+        resize: vertical;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+      .callout {
+        border: 1px solid var(--line);
+        background: var(--raised);
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .danger {
+        color: var(--danger);
+      }
+      @media (max-width: 1000px) {
+        .shell {
+          grid-template-columns: 180px 1fr;
+        }
+        .panel {
+          display: none;
+        }
+        .board {
+          grid-template-columns: repeat(2, minmax(220px, 1fr));
+        }
+      }
+      @media (max-width: 680px) {
+        .shell {
+          display: block;
+        }
+        .sidebar {
+          display: none;
+        }
+        main {
+          padding: 18px;
+        }
+        .board {
+          display: flex;
+          overflow: auto;
+        }
+        .column {
+          min-width: 260px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <h2 class="brand">Paseo</h2>
+        <div class="nav">
+          <div>Workspaces</div>
+          <div>Schedules</div>
+          <div class="active">Agent board</div>
+          <div>Prompt library</div>
+          <div>Dev ports</div>
+        </div>
+      </aside>
+      <main>
+        <div class="toolbar">
+          <div>
+            <h1>Agent board</h1>
+            <p>Live activity and review status in one board.</p>
+          </div>
+          <button class="button">Refresh</button>
+        </div>
+        <div class="board">
+          <section class="column">
+            <div class="column-head"><span>Running</span><span>2</span></div>
+            <article class="card">
+              <h2>Build account settings</h2>
+              <p>provenience-web · Luna</p>
+              <div class="meta">
+                <span><i class="dot"></i>Running</span><span>4m</span>
+              </div>
+            </article>
+          </section>
+          <section class="column">
+            <div class="column-head"><span>Unreviewed</span><span>1</span></div>
+            <article class="card">
+              <h2>Fix billing events</h2>
+              <p>api · Sol · +324 −58</p>
+              <div class="meta"><span>Move to…</span><span>Approved</span></div>
+            </article>
+          </section>
+          <section class="column">
+            <div class="column-head"><span>Recheck</span><span>0</span></div>
+          </section>
+          <section class="column">
+            <div class="column-head"><span>Error</span><span>0</span></div>
+          </section>
+          <section class="column">
+            <div class="column-head"><span>Approved</span><span>1</span></div>
+            <article class="card">
+              <h2>Update onboarding copy</h2>
+              <p>marketing · idle</p>
+              <div class="meta"><span>Move to…</span><span>Recheck</span></div>
+            </article>
+          </section>
+        </div>
+      </main>
+      <aside class="panel">
+        <h2>Notes</h2>
+        <p>
+          Private to this Paseo daemon and shared with workspace agents on
+          request.
+        </p>
+        <div class="tabs">
+          <span class="active">Write</span><span>Preview</span>
+        </div>
+        <textarea>
+# Review context
+
+- Check the migration path
+- Verify empty states on mobile
+- Re-run billing webhooks</textarea>
+        <div class="stack" style="margin-top: 10px">
+          <button class="button">Refine with agent</button
+          ><button class="button primary">Save</button>
+          <div class="callout">
+            <strong>QA plan ready</strong>
+            <p>
+              Test the updated authentication and migration flows in the app.
+            </p>
+          </div>
+          <button class="button">Open QA review</button>
+        </div>
+      </aside>
+    </div>
+  </body>
+</html>

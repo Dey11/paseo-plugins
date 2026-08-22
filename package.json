@@ -1,0 +1,25 @@
+{
+  "name": "paseo-productivity-plugins",
+  "description": "Trusted local plugins for the Paseo coding-agent workspace.",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "bun@1.3.14",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dey11/paseo-plugins.git"
+  },
+  "workspaces": [
+    "plugins/*"
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.2.22",
+    "@types/node": "^24.3.0",
+    "prettier": "^3.6.2"
+  },
+  "scripts": {
+    "format": "prettier --write \"*.md\" .github docs plugins package.json",
+    "format:check": "prettier --check \"*.md\" .github docs plugins package.json",
+    "test": "bun test plugins",
+    "typecheck": "bun run --filter '*' typecheck"
+  }
+}

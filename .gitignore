@@ -1,0 +1,11 @@
+node_modules/
+coverage/
+dist/
+*.log
+*.bak
+.DS_Store
+.env
+.env.*
+!.env.example
+.paseo/
+/agentiis-agent-ideas.md
