@@ -76,4 +76,4 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. On 2026-08-22, Agent Board ordering was made persistent and movement optimistic. All 34 focused tests, all four strict typechecks, and formatting pass. Workspace Companion reloads as `running`, and its retained log ends in `Plugin ready` without errors.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. On 2026-08-22, Agent Board ordering was made persistent and movement optimistic, and the Linear panel was rebuilt around Paseo's grouped rows, restrained hierarchy, and explicit request states. All 34 focused tests, all four strict typechecks, and formatting pass. Linear reloads as `running`, and its retained log ends in `Plugin ready` without errors.
