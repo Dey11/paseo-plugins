@@ -109,7 +109,7 @@
       }
       .board {
         display: grid;
-        grid-template-columns: repeat(4, minmax(220px, 1fr));
+        grid-template-columns: repeat(5, minmax(220px, 1fr));
         gap: 12px;
       }
       .column {
@@ -240,13 +240,13 @@
         <div class="toolbar">
           <div>
             <h1>Agent board</h1>
-            <p>Live agent activity with a separate review workflow.</p>
+            <p>Live activity and review status in one board.</p>
           </div>
           <button class="button">Refresh</button>
         </div>
         <div class="board">
           <section class="column">
-            <div class="column-head"><span>Working</span><span>2</span></div>
+            <div class="column-head"><span>Running</span><span>2</span></div>
             <article class="card">
               <h2>Build account settings</h2>
               <p>provenience-web · Luna</p>
@@ -260,11 +260,11 @@
             <article class="card">
               <h2>Fix billing events</h2>
               <p>api · Sol · +324 −58</p>
-              <div class="meta"><span>Move to…</span><span>Review</span></div>
+              <div class="meta"><span>Move to…</span><span>Approved</span></div>
             </article>
           </section>
           <section class="column">
-            <div class="column-head"><span>Reviewed</span><span>1</span></div>
+            <div class="column-head"><span>Approved</span><span>1</span></div>
             <article class="card">
               <h2>Update onboarding copy</h2>
               <p>marketing · idle</p>
@@ -273,6 +273,9 @@
           </section>
           <section class="column">
             <div class="column-head"><span>Recheck</span><span>0</span></div>
+          </section>
+          <section class="column">
+            <div class="column-head"><span>Error</span><span>0</span></div>
           </section>
         </div>
       </main>

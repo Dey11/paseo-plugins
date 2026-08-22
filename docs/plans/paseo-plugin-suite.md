@@ -11,11 +11,11 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 ## Scope
 
 1. Workspace-scoped Markdown notes with source and preview modes; the current agent can propose a replacement note that the user reviews before saving.
-2. An agent board grouped by native Paseo lifecycle and a plugin-owned review-state Kanban.
+2. One workspace board with exactly five columns: live `Running` and `Error`, plus plugin-owned `Unreviewed`, `Approved`, and `Recheck` review states.
 3. A global prompt library exposed through both a sidebar surface and composer attachment picker.
 4. A direct Linear GraphQL panel for search, issue detail, comments, status, and priority updates. Every write requires a second explicit confirmation.
 5. A manual review plan generated from the current Git diff, plus an optional action that creates an independent Sol reviewer agent.
-6. Workspace-scoped listening-port discovery, safe `SIGTERM`, and private Tailscale Serve controls.
+6. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
 
 ## Non-goals
 
@@ -31,13 +31,16 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 - Client bundles may only use host-provided React, React Native, TanStack Query, Zod, and Paseo interfaces.
 - The interface must work in Paseo's web, macOS, iOS, and Android hosts.
 - High-frequency board and command interactions remain intentionally low-motion.
+- Running and Error are read-only live states. Desktop/web drag targets accept only the three review states; touch and keyboard users retain explicit move actions.
 - Plugin state lives in `~/.paseo/plugin-data/<plugin-id>` and is written atomically.
 
 ## Chosen architecture
 
 Each plugin is a separate deep module with one responsibility and a small RPC interface. Shared contracts sit at the client/server seam. Filesystem, Git, Linear, `/proc`, and Tailscale details stay inside server adapters. Client surfaces render validated results and hold only temporary confirmation state.
 
-The workspace companion owns review states instead of mutating Paseo's native status model. Moving a card is exposed as an accessible “Move to” action because Paseo's current plugin client runtime does not expose a portable gesture library.
+The workspace companion renders one card per workspace. A real agent or workspace failure takes precedence, followed by active work, then the stored review state. This keeps `Running` and `Error` truthful without mutating Paseo's native lifecycle. Desktop/web cards use the platform's drag events because Paseo's plugin client runtime does not expose its internal `@dnd-kit` packages; compact and keyboard flows use quiet “Move to” actions.
+
+Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Dev Ports calls the desktop preload's allowlisted `opener.openUrl` bridge when present, then falls back to a normal browser tab or native Linking.
 
 ## Alternatives considered
 
@@ -46,6 +49,7 @@ The workspace companion owns review states instead of mutating Paseo's native st
 - Automatic Linear writes: rejected because external mutations need explicit intent.
 - Generic PID killing: rejected because PID reuse and unrelated same-user processes make it unsafe.
 - SSH tunnels or Funnel: rejected in favor of existing private tailnet connectivity and Tailscale Serve.
+- A bundled drag library: rejected because arbitrary client modules fail Paseo plugin evaluation. Native HTML drag is paired with explicit accessible movement instead.
 
 ## Implementation phases
 
@@ -58,7 +62,7 @@ The workspace companion owns review states instead of mutating Paseo's native st
 
 ## Validation
 
-- Focused Bun tests for concurrent persistence, review workflow transitions, review heuristics, Linear credential/confirmation/error behavior, port parsing/safety, Tailscale command construction, and mapping ownership. No test mutates a live Linear account or Tailscale configuration.
+- Focused Bun tests for concurrent persistence, board-state precedence, review workflow transitions and legacy-state migration, workspace routes, review heuristics, Linear credential/confirmation/error behavior, external browser selection, port parsing/safety, Tailscale command construction, and mapping ownership. No test mutates a live Linear account or Tailscale configuration.
 - Strict TypeScript checks in all four packages.
 - Paseo plugin installation/reload without daemon restart.
 - Daemon status and plugin list/log inspection after installation.
@@ -72,4 +76,4 @@ The workspace companion owns review states instead of mutating Paseo's native st
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. All four plugins pass focused tests, formatting, and strict TypeScript checks; report `running`; and load without plugin-log errors. Independent standards and specification reviews were run, and their material findings were resolved before handoff.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. All 30 focused tests, all four strict typechecks, and formatting pass. Both changed plugins reload as `running`, and their retained logs end in `Plugin ready` without errors.

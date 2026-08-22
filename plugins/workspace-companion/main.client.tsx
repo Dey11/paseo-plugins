@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  type GestureResponderEvent,
   Linking,
   Pressable,
   ScrollView,
@@ -27,12 +28,18 @@ import {
   SaveNoteRpc,
   SetReviewStateRpc,
 } from "./contracts";
+import { resolveBoardState, type BoardState } from "./workflow";
+import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
 
 const REVIEW_STATES: readonly ReviewState[] = [
   "unreviewed",
-  "reviewed",
-  "recheck",
   "approved",
+  "recheck",
+];
+const BOARD_STATES: readonly BoardState[] = [
+  "running",
+  ...REVIEW_STATES,
+  "error",
 ];
 
 export function NotesPanel({
@@ -256,13 +263,18 @@ export function ReviewPanel({
   );
 }
 
-export function AgentBoardSurface({ theme, layout }: PluginSurfaceProps) {
+export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
   const paseo = usePaseo();
   const getStates = useRpc(GetReviewStatesRpc);
   const setState = useRpc(SetReviewStateRpc);
   const styles = useStyles(theme, layout.compact);
   const [refreshKey, setRefreshKey] = useState(0);
   const [moving, setMoving] = useState<string | null>(null);
+  const [draggedWorkspaceId, setDraggedWorkspaceId] = useState<string | null>(
+    null,
+  );
+  const [dropTarget, setDropTarget] = useState<ReviewState | null>(null);
+  const [notice, setNotice] = useState("");
   const board = useQuery({
     queryKey: ["agent-board", refreshKey],
     queryFn: async () => {
@@ -286,42 +298,60 @@ export function AgentBoardSurface({ theme, layout }: PluginSurfaceProps) {
 
   async function move(workspaceId: string, state: ReviewState) {
     setMoving(workspaceId);
+    setNotice("");
     try {
       await setState({ workspaceId, state });
       await board.refetch();
+    } catch (error) {
+      setNotice(message(error));
     } finally {
       setMoving(null);
+      setDraggedWorkspaceId(null);
+      setDropTarget(null);
     }
   }
 
-  if (board.isLoading || !board.data)
+  async function drop(state: ReviewState) {
+    if (!draggedWorkspaceId) return;
+    await move(draggedWorkspaceId, state);
+  }
+
+  if (board.isLoading || (!board.data && !board.isError))
     return (
       <View style={styles.center}>
         <ActivityIndicator color={theme.colors.accent} />
       </View>
     );
-  const cards = board.data.workspaces.map((workspace: PaseoWorkspace) => {
-    const agents = board.data.agents
-      .filter((agent: PaseoAgent) => agent.workspaceId === workspace.id)
-      .sort((a: PaseoAgent, b: PaseoAgent) =>
-        b.updatedAt.localeCompare(a.updatedAt),
-      );
-    const reviewState: ReviewState =
-      board.data.states[workspace.id] ?? "unreviewed";
-    return {
-      workspace,
-      agent: agents[0],
-      reviewState,
-    };
-  });
-  const liveAgents = board.data.agents
-    .filter((agent: PaseoAgent) => agent.status !== "closed")
-    .map((agent: PaseoAgent) => ({
-      agent,
-      workspace: board.data.workspaces.find(
-        (workspace: PaseoWorkspace) => workspace.id === agent.workspaceId,
-      ),
-    }));
+  if (board.isError || !board.data)
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Unable to load the agent board</Text>
+        <BoardToolbarButton
+          label="Try again"
+          onPress={() => setRefreshKey((value) => value + 1)}
+          styles={styles}
+        />
+      </View>
+    );
+  const cards: BoardCard[] = board.data.workspaces.map(
+    (workspace: PaseoWorkspace) => {
+      const agents = board.data.agents
+        .filter((agent: PaseoAgent) => agent.workspaceId === workspace.id)
+        .sort((a: PaseoAgent, b: PaseoAgent) =>
+          b.updatedAt.localeCompare(a.updatedAt),
+        );
+      const reviewState: ReviewState =
+        board.data.states[workspace.id] ?? "unreviewed";
+      return {
+        workspace,
+        agent: agents[0],
+        state: resolveBoardState(workspace, agents, reviewState),
+      };
+    },
+  );
+  cards.sort((left, right) =>
+    cardUpdatedAt(right).localeCompare(cardUpdatedAt(left)),
+  );
 
   return (
     <ScrollView
@@ -329,69 +359,50 @@ export function AgentBoardSurface({ theme, layout }: PluginSurfaceProps) {
       contentContainerStyle={styles.content}
       horizontal={false}
     >
-      <View style={styles.row}>
-        <Header
-          title="Agent board"
-          subtitle="Live Paseo activity with a separate review workflow."
-          styles={styles}
-        />
-        <Button
+      <View style={styles.boardToolbar}>
+        <View style={styles.header}>
+          <Text style={styles.boardHeaderTitle}>Agent board</Text>
+          <Text style={styles.muted}>
+            Live activity and review status in one board
+          </Text>
+        </View>
+        <BoardToolbarButton
           label="Refresh"
           onPress={() => setRefreshKey((value) => value + 1)}
           styles={styles}
         />
       </View>
+      {notice ? (
+        <Text accessibilityLiveRegion="polite" style={styles.notice}>
+          {notice}
+        </Text>
+      ) : null}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.board}
       >
-        <LiveAgentColumn
-          title="Running"
-          cards={liveAgents.filter(
-            ({ agent }) =>
-              !agent.requiresAttention &&
-              ["initializing", "running"].includes(agent.status),
-          )}
-          styles={styles}
-        />
-        <LiveAgentColumn
-          title="Needs attention"
-          cards={liveAgents.filter(
-            ({ agent }) => agent.requiresAttention && agent.status !== "error",
-          )}
-          styles={styles}
-        />
-        <LiveAgentColumn
-          title="Idle"
-          cards={liveAgents.filter(
-            ({ agent }) => agent.status === "idle" && !agent.requiresAttention,
-          )}
-          styles={styles}
-        />
-        <LiveAgentColumn
-          title="Error"
-          cards={liveAgents.filter(({ agent }) => agent.status === "error")}
-          styles={styles}
-        />
-      </ScrollView>
-      <Text style={styles.sectionLabel}>Review workflow</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.board}
-      >
-        {REVIEW_STATES.map((state) => (
+        {BOARD_STATES.map((state) => (
           <BoardColumn
             key={state}
             title={titleCase(state)}
-            cards={cards.filter(
-              ({ workspace, reviewState }) =>
-                workspace.status === "done" && reviewState === state,
-            )}
-            reviewState={state}
+            state={state}
+            cards={cards.filter((card) => card.state === state)}
             onMove={move}
             moving={moving}
+            draggedWorkspaceId={draggedWorkspaceId}
+            onDragStart={setDraggedWorkspaceId}
+            onDragEnd={() => {
+              setDraggedWorkspaceId(null);
+              setDropTarget(null);
+            }}
+            onDragOver={setDropTarget}
+            onDrop={drop}
+            dropActive={dropTarget === state}
+            openWorkspace={(workspaceId) =>
+              openWorkspace(host.id, workspaceId, layout.platform)
+            }
+            web={layout.platform === "web"}
             styles={styles}
           />
         ))}
@@ -400,93 +411,274 @@ export function AgentBoardSurface({ theme, layout }: PluginSurfaceProps) {
   );
 }
 
-type BoardCard = { workspace: PaseoWorkspace; agent?: PaseoAgent };
-type LiveAgentCard = { agent: PaseoAgent; workspace?: PaseoWorkspace };
+type BoardCard = {
+  workspace: PaseoWorkspace;
+  agent?: PaseoAgent;
+  state: BoardState;
+};
 
-function LiveAgentColumn({
+function BoardColumn({
   title,
+  state,
   cards,
+  onMove,
+  moving,
+  draggedWorkspaceId,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  dropActive,
+  openWorkspace,
+  web,
   styles,
 }: {
   title: string;
-  cards: LiveAgentCard[];
+  state: BoardState;
+  cards: BoardCard[];
+  onMove: (id: string, state: ReviewState) => void;
+  moving: string | null;
+  draggedWorkspaceId: string | null;
+  onDragStart: (id: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (state: ReviewState) => void;
+  onDrop: (state: ReviewState) => void;
+  dropActive: boolean;
+  openWorkspace: (id: string) => void;
+  web: boolean;
   styles: Styles;
 }) {
-  return (
-    <View style={styles.column}>
-      <View style={styles.row}>
-        <Text style={styles.columnTitle}>{title}</Text>
-        <Pill label={String(cards.length)} styles={styles} />
+  const reviewState = isReviewState(state) ? state : null;
+  const content = (
+    <>
+      <View style={styles.columnHeader}>
+        <View style={styles.columnLabel}>
+          <View
+            style={[
+              styles.stateDot,
+              state === "running" && styles.runningDot,
+              state === "error" && styles.errorDot,
+            ]}
+          />
+          <Text style={styles.columnTitle}>{title}</Text>
+        </View>
+        <View style={styles.countPill}>
+          <Text style={styles.countText}>{cards.length}</Text>
+        </View>
       </View>
-      {cards.map(({ agent, workspace }) => (
-        <Card key={agent.id} styles={styles}>
-          <Text style={styles.cardTitle}>{agent.title ?? agent.provider}</Text>
-          <Text style={styles.muted}>
-            {workspace?.title ?? workspace?.name ?? agent.cwd}
-          </Text>
-          <Text style={styles.meta}>
-            {agent.provider} · {agent.status}
-          </Text>
-        </Card>
-      ))}
+      <View style={styles.columnCards}>
+        {cards.map((card) => {
+          const boardCard = (
+            <WorkspaceBoardCard
+              card={card}
+              reviewState={reviewState}
+              moving={moving === card.workspace.id}
+              openWorkspace={openWorkspace}
+              onMove={onMove}
+              styles={styles}
+            />
+          );
+          return web && reviewState ? (
+            <WebDragCard
+              key={card.workspace.id}
+              workspaceId={card.workspace.id}
+              active={draggedWorkspaceId === card.workspace.id}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              styles={styles}
+            >
+              {boardCard}
+            </WebDragCard>
+          ) : (
+            <View key={card.workspace.id}>{boardCard}</View>
+          );
+        })}
+        {cards.length === 0 ? (
+          <Text style={styles.columnEmpty}>No workspaces</Text>
+        ) : null}
+      </View>
+    </>
+  );
+
+  if (web) {
+    return (
+      <WebDropColumn
+        reviewState={reviewState}
+        dropActive={dropActive}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        styles={styles}
+      >
+        {content}
+      </WebDropColumn>
+    );
+  }
+
+  return <View style={styles.column}>{content}</View>;
+}
+
+function WorkspaceBoardCard({
+  card,
+  reviewState,
+  moving,
+  openWorkspace,
+  onMove,
+  styles,
+}: {
+  card: BoardCard;
+  reviewState: ReviewState | null;
+  moving: boolean;
+  openWorkspace: (id: string) => void;
+  onMove: (id: string, state: ReviewState) => void;
+  styles: Styles;
+}) {
+  const { workspace, agent } = card;
+  return (
+    <View style={[styles.boardCard, moving && styles.movingCard]}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open workspace ${workspace.title ?? workspace.name}`}
+        onPress={() => openWorkspace(workspace.id)}
+        style={({ pressed }) => [
+          styles.boardCardBody,
+          pressed && styles.boardCardPressed,
+        ]}
+      >
+        <Text numberOfLines={2} style={styles.boardCardTitle}>
+          {workspace.title ?? workspace.name}
+        </Text>
+        <Text numberOfLines={2} style={styles.boardCardSubtitle}>
+          {workspace.projectDisplayName} ·{" "}
+          {agent?.title ?? agent?.provider ?? "No agent"}
+        </Text>
+        <Text style={styles.boardCardMeta}>
+          {workspace.diffStat
+            ? `+${workspace.diffStat.additions} −${workspace.diffStat.deletions}`
+            : (agent?.provider ?? "No changes")}
+        </Text>
+      </Pressable>
+      {reviewState ? (
+        <View style={styles.moveRow}>
+          <Text style={styles.moveLabel}>Move to</Text>
+          {REVIEW_STATES.filter((state) => state !== reviewState).map(
+            (state) => (
+              <MoveAction
+                key={state}
+                label={titleCase(state)}
+                disabled={moving}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onMove(workspace.id, state);
+                }}
+                styles={styles}
+              />
+            ),
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
-function BoardColumn({
-  title,
-  cards,
-  reviewState,
-  onMove,
-  moving,
+
+function WebDragCard({
+  workspaceId,
+  active,
+  onDragStart,
+  onDragEnd,
   styles,
-}: {
-  title: string;
-  cards: BoardCard[];
-  reviewState?: ReviewState;
-  onMove?: (id: string, state: ReviewState) => void;
-  moving?: string | null;
+  children,
+}: React.PropsWithChildren<{
+  workspaceId: string;
+  active: boolean;
+  onDragStart: (id: string) => void;
+  onDragEnd: () => void;
   styles: Styles;
-}) {
+}>) {
   return (
-    <View style={styles.column}>
-      <View style={styles.row}>
-        <Text style={styles.columnTitle}>{title}</Text>
-        <Pill label={String(cards.length)} styles={styles} />
-      </View>
-      {cards.map(({ workspace, agent }) => (
-        <Card key={workspace.id} styles={styles}>
-          <Text style={styles.cardTitle}>
-            {workspace.title ?? workspace.name}
-          </Text>
-          <Text style={styles.muted}>
-            {workspace.projectDisplayName} ·{" "}
-            {agent?.title ?? agent?.provider ?? "No agent"}
-          </Text>
-          <Text style={styles.meta}>
-            {workspace.status}
-            {workspace.diffStat
-              ? ` · +${workspace.diffStat.additions} −${workspace.diffStat.deletions}`
-              : ""}
-          </Text>
-          {reviewState && onMove ? (
-            <View style={styles.moveRow}>
-              {REVIEW_STATES.filter((state) => state !== reviewState).map(
-                (state) => (
-                  <MiniButton
-                    key={state}
-                    label={titleCase(state)}
-                    disabled={moving === workspace.id}
-                    onPress={() => onMove(workspace.id, state)}
-                    styles={styles}
-                  />
-                ),
-              )}
-            </View>
-          ) : null}
-        </Card>
-      ))}
-    </View>
+    <div
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", workspaceId);
+        onDragStart(workspaceId);
+      }}
+      onDragEnd={onDragEnd}
+      style={{
+        ...(StyleSheet.flatten(
+          active ? styles.webDragCardActive : undefined,
+        ) as unknown as React.CSSProperties),
+        cursor: active ? "grabbing" : "grab",
+      }}
+    >
+      {children}
+    </div>
   );
+}
+
+function WebDropColumn({
+  reviewState,
+  dropActive,
+  onDragOver,
+  onDrop,
+  styles,
+  children,
+}: React.PropsWithChildren<{
+  reviewState: ReviewState | null;
+  dropActive: boolean;
+  onDragOver: (state: ReviewState) => void;
+  onDrop: (state: ReviewState) => void;
+  styles: Styles;
+}>) {
+  return (
+    <div
+      onDragOver={
+        reviewState
+          ? (event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              onDragOver(reviewState);
+            }
+          : undefined
+      }
+      onDrop={
+        reviewState
+          ? (event) => {
+              event.preventDefault();
+              void onDrop(reviewState);
+            }
+          : undefined
+      }
+      style={
+        StyleSheet.flatten([
+          styles.column,
+          dropActive && styles.columnDropActive,
+        ]) as unknown as React.CSSProperties
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+function isReviewState(state: BoardState): state is ReviewState {
+  return REVIEW_STATES.includes(state as ReviewState);
+}
+
+function cardUpdatedAt(card: BoardCard): string {
+  return card.agent?.updatedAt ?? card.workspace.statusEnteredAt ?? "";
+}
+
+function openWorkspace(
+  hostId: string,
+  workspaceId: string,
+  platform: PluginSurfaceProps["layout"]["platform"],
+) {
+  const route = buildWorkspaceRoute(hostId, workspaceId);
+  if (platform === "web" && typeof window !== "undefined") {
+    window.location.assign(route);
+    return;
+  }
+  void Linking.openURL(buildWorkspaceDeepLink(hostId, workspaceId));
 }
 
 function MarkdownPreview({
@@ -690,14 +882,36 @@ function Button({
     </Pressable>
   );
 }
-function MiniButton({
+function BoardToolbarButton({
+  label,
+  onPress,
+  styles,
+}: {
+  label: string;
+  onPress: () => void;
+  styles: Styles;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.boardToolbarButton,
+        pressed && styles.boardControlPressed,
+      ]}
+    >
+      <Text style={styles.boardToolbarButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+function MoveAction({
   label,
   onPress,
   disabled,
   styles,
 }: {
   label: string;
-  onPress: () => void;
+  onPress: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   styles: Styles;
 }) {
@@ -707,11 +921,11 @@ function MiniButton({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.miniButton,
-        (pressed || disabled) && styles.pressed,
+        styles.moveAction,
+        (pressed || disabled) && styles.boardControlPressed,
       ]}
     >
-      <Text style={styles.miniButtonText}>{label}</Text>
+      <Text style={styles.moveActionText}>{label}</Text>
     </Pressable>
   );
 }
@@ -777,6 +991,11 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           lineHeight: 19,
         },
         notice: { color: theme.colors.foregroundMuted, fontSize: 13 },
+        errorText: {
+          color: theme.colors.statusDanger,
+          fontSize: 13,
+          marginBottom: 6,
+        },
         input: {
           color: theme.colors.foreground,
           backgroundColor: theme.colors.surface0,
@@ -926,46 +1145,176 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           borderColor: theme.colors.foregroundMuted,
         },
         board: { gap: 12, paddingBottom: 12 },
-        sectionLabel: {
+        boardToolbar: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+        },
+        boardHeaderTitle: {
           color: theme.colors.foreground,
           fontSize: 15,
-          fontWeight: "700",
-          marginTop: 4,
+          fontWeight: "500",
         },
+        boardToolbarButton: {
+          minHeight: 36,
+          justifyContent: "center",
+          paddingHorizontal: 10,
+          borderRadius: 9,
+        },
+        boardToolbarButtonText: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 13,
+          fontWeight: "400",
+        },
+        boardControlPressed: { opacity: 0.7 },
         column: {
-          width: compact ? 280 : 310,
-          minHeight: 360,
-          gap: 8,
+          width: compact ? 272 : 292,
+          minHeight: 420,
           padding: 12,
           borderRadius: 14,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.colors.foregroundMuted,
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.055,
+          ),
+        },
+        columnDropActive: {
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.accent,
+            0.12,
+          ),
+        },
+        columnHeader: {
+          minHeight: 32,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          paddingHorizontal: 2,
+          paddingBottom: 10,
+        },
+        columnLabel: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 7,
         },
         columnTitle: {
           color: theme.colors.foreground,
           fontSize: 14,
-          fontWeight: "700",
+          fontWeight: "500",
+        },
+        stateDot: {
+          width: 7,
+          height: 7,
+          borderRadius: 4,
+          backgroundColor: theme.colors.foregroundMuted,
+        },
+        runningDot: { backgroundColor: theme.colors.accent },
+        errorDot: { backgroundColor: theme.colors.statusDanger },
+        countPill: {
+          minWidth: 24,
+          minHeight: 24,
+          paddingHorizontal: 7,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 12,
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.1,
+          ),
+        },
+        countText: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 11,
+          fontWeight: "500",
+          fontVariant: ["tabular-nums"],
+        },
+        columnCards: { gap: 8 },
+        columnEmpty: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 12,
+          paddingHorizontal: 2,
+          paddingVertical: 8,
+        },
+        boardCard: {
+          overflow: "hidden",
+          borderRadius: 12,
+          backgroundColor: theme.colors.surface0,
+          shadowColor: theme.colors.foreground,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.08,
+          shadowRadius: 2,
+          elevation: 1,
+        },
+        movingCard: { opacity: 0.64 },
+        boardCardBody: { gap: 5, padding: 13 },
+        boardCardPressed: { opacity: 0.72 },
+        boardCardTitle: {
+          color: theme.colors.foreground,
+          fontSize: 14,
+          lineHeight: 19,
+          fontWeight: "500",
+        },
+        boardCardSubtitle: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 12,
+          lineHeight: 17,
+        },
+        boardCardMeta: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 11,
+          fontVariant: ["tabular-nums"],
         },
         moveRow: {
           flexDirection: "row",
           flexWrap: "wrap",
-          gap: 6,
-          marginTop: 4,
+          alignItems: "center",
+          gap: 10,
+          minHeight: 36,
+          paddingHorizontal: 13,
+          paddingBottom: 9,
         },
-        miniButton: {
-          minHeight: 34,
-          justifyContent: "center",
-          paddingHorizontal: 9,
-          borderRadius: 8,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.colors.foregroundMuted,
-        },
-        miniButtonText: {
-          color: theme.colors.foreground,
+        moveLabel: {
+          color: theme.colors.foregroundMuted,
           fontSize: 11,
-          fontWeight: "600",
         },
+        moveAction: {
+          minHeight: 28,
+          justifyContent: "center",
+          paddingHorizontal: 2,
+        },
+        moveActionText: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 11,
+          fontWeight: "500",
+        },
+        webDragCardActive: { opacity: 0.78 },
       }),
     [theme, compact],
   );
+}
+
+function blendHex(base: string, overlay: string, amount: number): string {
+  const left = parseHex(base);
+  const right = parseHex(overlay);
+  if (!left || !right) return base;
+  const channel = (index: number) =>
+    Math.round(left[index]! * (1 - amount) + right[index]! * amount)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+}
+
+function parseHex(value: string): readonly [number, number, number] | null {
+  const match = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i.exec(value);
+  return match
+    ? [
+        Number.parseInt(match[1]!, 16),
+        Number.parseInt(match[2]!, 16),
+        Number.parseInt(match[3]!, 16),
+      ]
+    : null;
 }

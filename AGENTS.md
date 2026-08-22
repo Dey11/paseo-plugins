@@ -18,11 +18,11 @@ User instructions take precedence. Preserve unrelated files and running processe
 
 ## Project Glossary
 
-- **Workspace Companion**: Notes, agent board, review-state Kanban, and manual review plans.
+- **Workspace Companion**: Notes, one unified workspace board, and manual review plans.
 - **Prompt Library**: Globally stored reusable prompts exposed in the sidebar and composer attachment picker.
 - **Linear**: Direct GraphQL integration for reading and explicitly confirmed issue mutations.
 - **Dev Ports**: Same-user workspace process discovery, safe termination, and Tailscale Serve controls.
-- **Review state**: A plugin-owned workflow marker: `unreviewed`, `reviewed`, `recheck`, or `approved`.
+- **Board state**: `running` and `error` are derived from Paseo activity; `unreviewed`, `recheck`, and `approved` are plugin-owned review markers.
 - **Paseo home**: The daemon-owned configuration directory, normally `~/.paseo`.
 
 ## Development & Execution Rules

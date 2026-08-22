@@ -6,7 +6,7 @@ All four plugins are installed against the local Paseo daemon. If the client was
 
 - Open **Notes** from an agent's right panel or the command center. Edit Markdown in **Source**, inspect it in **Preview**, and save it to the daemon.
 - **Ask agent for draft** sends the current note to the agent whose panel is open. The returned Markdown stays as an unsaved draft until you review and save it.
-- Open **Agent board** from the sidebar. Agents are grouped by live state under **Running**, **Needs attention**, **Idle**, and **Error**. Finished work can be moved among **Unreviewed**, **Reviewed**, **Recheck**, and **Approved** with the card actions.
+- Open **Agent board** from the sidebar. There is one workspace board with **Running**, **Unreviewed**, **Approved**, **Recheck**, and **Error** columns. Running and Error follow live Paseo activity. Drag a finished workspace among the three review columns on desktop/web, or use its **Move to** actions. Select the card body to open that workspace.
 - Open **Review** from an agent panel. **Generate review plan** analyzes the current Git diff. **Start independent review** creates a child reviewer with Sol, high thinking, and auto-review mode.
 
 ## Prompt Library
@@ -25,4 +25,5 @@ All four plugins are installed against the local Paseo daemon. If the client was
 - Open **Dev ports** from an agent's right panel to see the same controls filtered to that workspace.
 - **Stop process** requires confirmation, revalidates the process, and sends `SIGTERM` once. A surviving process is reported and is never force-killed.
 - **Share on tailnet** creates a private Tailscale Serve URL using the same port. It does not enable Funnel. **Stop sharing** removes that port's mapping.
+- Select a shared URL to open it in the operating system browser. Paseo desktop uses its external opener instead of the small in-app browser pane.
 - The plugin records mappings it creates and refuses to remove a pre-existing or externally managed Tailscale mapping.

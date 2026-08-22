@@ -1,13 +1,9 @@
 import { defineRpc } from "@getpaseo/plugin/server";
 import { z } from "zod";
+import { normalizeStoredReviewState, type ReviewState } from "./workflow";
 
-export const ReviewStateSchema = z.enum([
-  "unreviewed",
-  "reviewed",
-  "recheck",
-  "approved",
-]);
-export type ReviewState = z.infer<typeof ReviewStateSchema>;
+export const ReviewStateSchema = z.enum(["unreviewed", "recheck", "approved"]);
+export type { ReviewState } from "./workflow";
 
 export const NoteSchema = z.object({
   workspaceId: z.string().min(1),
@@ -30,7 +26,11 @@ export const SaveNoteRpc = defineRpc({
   output: NoteSchema,
 });
 
-export const ReviewStatesSchema = z.record(z.string(), ReviewStateSchema);
+const StoredReviewStateSchema = z
+  .union([ReviewStateSchema, z.literal("reviewed")])
+  .transform((state): ReviewState => normalizeStoredReviewState(state));
+
+export const ReviewStatesSchema = z.record(z.string(), StoredReviewStateSchema);
 
 export const GetReviewStatesRpc = defineRpc({
   name: "workspace-companion.review-states.get",
