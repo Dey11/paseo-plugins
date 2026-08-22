@@ -42,4 +42,4 @@ Use the existing Bun workspace as the repository root. Paseo installs each `plug
 
 ## Status
 
-In progress on 2026-08-22.
+Completed on 2026-08-22. The committed tree passes formatting, 39 focused tests, and all four strict TypeScript checks from a fresh clone. The release is published to the private `Dey11/paseo-plugins` repository with a clean `main` history; the owner will make it public later.
