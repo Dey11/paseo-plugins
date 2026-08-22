@@ -18,7 +18,7 @@ User instructions take precedence. Preserve unrelated files and running processe
 
 ## Project Glossary
 
-- **Workspace Companion**: Notes, one unified workspace board, and manual review plans.
+- **Workspace Companion**: Notes, one unified workspace board, and transcript-aware manual QA plans.
 - **Prompt Library**: Globally stored reusable prompts exposed in the sidebar and composer attachment picker.
 - **Linear**: Direct GraphQL integration for reading and explicitly confirmed issue mutations.
 - **Dev Ports**: Same-user workspace process discovery, safe termination, and Tailscale Serve controls.

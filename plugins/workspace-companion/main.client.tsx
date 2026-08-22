@@ -3,7 +3,7 @@ import type {
   PluginSurfaceProps,
   PluginTheme,
 } from "@getpaseo/plugin";
-import { useAgent, usePaseo, useRpc, useWorkspace } from "@getpaseo/plugin";
+import { useAgent, usePaseo, useRpc } from "@getpaseo/plugin";
 import type { PaseoAgent, PaseoWorkspace } from "@getpaseo/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
@@ -24,6 +24,7 @@ import {
   GetNoteRpc,
   GetReviewPlanRpc,
   PlaceBoardCardRpc,
+  type ReviewDocument,
   type ReviewPlan,
   type ReviewState,
   SaveNoteRpc,
@@ -56,35 +57,47 @@ export function NotesPanel({
   const getNote = useRpc(GetNoteRpc);
   const saveNote = useRpc(SaveNoteRpc);
   const paseo = usePaseo();
-  const [mode, setMode] = useState<"source" | "preview">("source");
+  const agentTitle = useAgent(agentId, (agent) => agent.title) ?? "this agent";
+  const [mode, setMode] = useState<"write" | "preview">("write");
   const [markdown, setMarkdown] = useState("");
+  const [savedMarkdown, setSavedMarkdown] = useState("");
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [noticeIsError, setNoticeIsError] = useState(false);
+  const [busy, setBusy] = useState<"save" | "refine" | null>(null);
   const styles = useStyles(theme, layout.compact);
   const note = useQuery({
     queryKey: ["workspace-note", workspaceId],
     queryFn: () => getNote({ workspaceId }),
   });
   useEffect(() => {
-    if (note.data) setMarkdown(note.data.markdown);
+    if (!note.data) return;
+    setMarkdown(note.data.markdown);
+    setSavedMarkdown(note.data.markdown);
+    setUpdatedAt(note.data.updatedAt);
   }, [note.data]);
+  const dirty = markdown !== savedMarkdown;
 
   async function save() {
-    setBusy(true);
+    setBusy("save");
     setNotice("");
+    setNoticeIsError(false);
     try {
-      await saveNote({ workspaceId, markdown });
-      setNotice("Saved to this Paseo daemon.");
+      const saved = await saveNote({ workspaceId, markdown });
+      setSavedMarkdown(saved.markdown);
+      setUpdatedAt(saved.updatedAt);
     } catch (error) {
       setNotice(message(error));
+      setNoticeIsError(true);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function askAgent() {
-    setBusy(true);
+    setBusy("refine");
     setNotice("");
+    setNoticeIsError(false);
     try {
       const result = await paseo.agents
         .ref(agentId)
@@ -97,60 +110,90 @@ export function NotesPanel({
           result.error ?? "The agent did not return a note draft.",
         );
       setMarkdown(result.lastMessage);
-      setMode("source");
-      setNotice("Agent draft loaded. Review it, then save when ready.");
+      setMode("write");
+      setNotice("Agent draft loaded. Review it before saving.");
     } catch (error) {
       setNotice(message(error));
+      setNoticeIsError(true);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={styles.panelContent}
       keyboardShouldPersistTaps="handled"
     >
       <Header
         title="Notes"
-        subtitle="Private workspace context stored by this Paseo daemon."
+        subtitle={`Workspace context for ${agentTitle}`}
         styles={styles}
       />
       <Segments
-        values={["source", "preview"]}
+        values={["write", "preview"]}
         value={mode}
-        onChange={(value) => setMode(value as "source" | "preview")}
+        onChange={(value) => setMode(value as "write" | "preview")}
         styles={styles}
       />
-      {mode === "source" ? (
-        <TextInput
-          accessibilityLabel="Workspace note"
-          multiline
-          value={markdown}
-          onChangeText={setMarkdown}
-          placeholder="Add context, decisions, and follow-ups…"
-          placeholderTextColor={theme.colors.foregroundMuted}
-          style={[styles.input, styles.noteInput]}
+      {note.isError ? (
+        <PanelError
+          title="Couldn’t load this note"
+          message={message(note.error)}
+          onRetry={() => void note.refetch()}
+          styles={styles}
         />
       ) : (
-        <MarkdownPreview markdown={markdown} styles={styles} />
+        <View style={styles.noteSurface}>
+          {note.isLoading ? (
+            <View style={styles.noteLoading}>
+              <ActivityIndicator color={theme.colors.foregroundMuted} />
+            </View>
+          ) : mode === "write" ? (
+            <TextInput
+              accessibilityLabel="Workspace note"
+              multiline
+              value={markdown}
+              onChangeText={setMarkdown}
+              placeholder="Add decisions, context, and follow-ups…"
+              placeholderTextColor={theme.colors.foregroundMuted}
+              style={styles.noteEditor}
+            />
+          ) : (
+            <MarkdownPreview markdown={markdown} styles={styles} />
+          )}
+        </View>
       )}
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-      <View style={styles.actions}>
-        <Button
-          label={busy ? "Working…" : "Save note"}
-          onPress={save}
-          primary
-          disabled={busy}
-          styles={styles}
-        />
-        <Button
-          label="Ask agent for draft"
-          onPress={askAgent}
-          disabled={busy}
-          styles={styles}
-        />
+      {notice ? (
+        <Text style={noticeIsError ? styles.errorText : styles.notice}>
+          {notice}
+        </Text>
+      ) : null}
+      <View style={styles.panelFooter}>
+        <Text accessibilityLiveRegion="polite" style={styles.saveState}>
+          {busy === "save"
+            ? "Saving..."
+            : dirty
+              ? "Unsaved changes"
+              : savedLabel(updatedAt)}
+        </Text>
+        <View style={styles.footerActions}>
+          <Button
+            label={busy === "refine" ? "Refining..." : "Refine with agent"}
+            onPress={askAgent}
+            variant="ghost"
+            disabled={busy !== null || note.isError}
+            styles={styles}
+          />
+          <Button
+            label="Save"
+            onPress={save}
+            variant="primary"
+            disabled={busy !== null || note.isError || !dirty}
+            styles={styles}
+          />
+        </View>
       </View>
     </ScrollView>
   );
@@ -164,105 +207,94 @@ export function ReviewPanel({
 }: PluginAgentPanelProps) {
   const getPlan = useRpc(GetReviewPlanRpc);
   const generatePlan = useRpc(GenerateReviewPlanRpc);
-  const paseo = usePaseo();
-  const workspaceName =
-    useWorkspace(
-      workspaceId,
-      (workspace) => workspace.title ?? workspace.name,
-    ) ?? "workspace";
-  const agentTitle =
-    useAgent(agentId, (agent) => agent.title) ?? "current agent";
-  const [plan, setPlan] = useState<ReviewPlan | null>(null);
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+  const [starting, setStarting] = useState(false);
+  const [generationError, setGenerationError] = useState("");
   const styles = useStyles(theme, layout.compact);
-  const stored = useQuery({
+  const review = useQuery<ReviewDocument>({
     queryKey: ["review-plan", workspaceId],
     queryFn: () => getPlan({ workspaceId }),
+    refetchInterval: (query) =>
+      query.state.data?.status === "generating" ? 2_000 : false,
   });
-  useEffect(() => {
-    if (stored.data) setPlan(stored.data);
-  }, [stored.data]);
+  const document = review.data;
+  const plan = document?.plan ?? null;
+  const generating = starting || document?.status === "generating";
 
   async function generate() {
-    setBusy(true);
-    setNotice("");
+    setStarting(true);
+    setGenerationError("");
     try {
-      setPlan(await generatePlan({ workspaceId }));
+      const next = await generatePlan({ workspaceId, agentId });
+      queryClient.setQueryData(["review-plan", workspaceId], next);
+      void review.refetch();
     } catch (error) {
-      setNotice(message(error));
+      setGenerationError(message(error));
     } finally {
-      setBusy(false);
-    }
-  }
-
-  async function startReviewer() {
-    setBusy(true);
-    setNotice("");
-    try {
-      const workspace = paseo.workspaces.ref(workspaceId);
-      const reviewer = await workspace.agents.create({
-        config: {
-          provider: "codex/gpt-5.6-sol",
-          modeId: "auto-review",
-          thinkingOptionId: "high",
-        },
-        parent: agentId,
-        title: `Review ${workspaceName}`,
-        labels: { role: "independent-reviewer", sourceAgent: agentId },
-        prompt: `Independently review the current Git diff in this workspace. Focus on correctness, regressions, security, data safety, missing verification, and maintainability. Do not edit files. Report only actionable findings with file and line references, then list remaining review risks. The originating agent is “${agentTitle}”.`,
-      });
-      setNotice(`Independent reviewer started (${reviewer.id.slice(0, 8)}).`);
-    } catch (error) {
-      setNotice(message(error));
-    } finally {
-      setBusy(false);
+      setStarting(false);
     }
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Header
-        title="Review"
-        subtitle="Generate a deterministic checklist when a diff is worth checking."
-        styles={styles}
-      />
-      <View style={styles.actions}>
-        <Button
-          label={busy ? "Working…" : "Generate review plan"}
-          onPress={generate}
-          primary
-          disabled={busy}
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.panelContent}
+    >
+      <View style={styles.panelHeaderRow}>
+        <Header
+          title="QA review"
+          subtitle="Manual checks inferred from the work and its conversation"
           styles={styles}
         />
-        <Button
-          label="Start independent review"
-          onPress={startReviewer}
-          disabled={busy}
-          styles={styles}
-        />
+        {plan ? (
+          <Button
+            label="Regenerate"
+            onPress={generate}
+            variant="primary"
+            disabled={generating}
+            styles={styles}
+          />
+        ) : null}
       </View>
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+      {generating ? <GeneratingReview styles={styles} /> : null}
+      {generationError ? (
+        <PanelError
+          title="Couldn’t prepare the QA plan"
+          message={generationError}
+          onRetry={generate}
+          styles={styles}
+        />
+      ) : review.isError ? (
+        <PanelError
+          title="Couldn’t prepare the QA plan"
+          message={message(review.error)}
+          onRetry={generate}
+          styles={styles}
+        />
+      ) : document?.status === "error" && !generating ? (
+        <PanelError
+          title="Couldn’t prepare the QA plan"
+          message={document.error ?? "Unable to generate a QA plan."}
+          onRetry={generate}
+          styles={styles}
+        />
+      ) : null}
       {plan ? (
-        <View style={styles.stack}>
-          <Card styles={styles}>
-            <Text style={styles.cardTitle}>{plan.summary}</Text>
-            <Text style={styles.muted}>
-              {new Date(plan.generatedAt).toLocaleString()}
-            </Text>
-          </Card>
-          {plan.checks.map((check) => (
-            <Card key={check.id} styles={styles}>
-              <View style={styles.row}>
-                <Text style={styles.cardTitle}>{check.title}</Text>
-                <Pill label={check.priority} styles={styles} />
-              </View>
-              <Text style={styles.muted}>{check.detail}</Text>
-            </Card>
-          ))}
+        <QaPlan plan={plan} styles={styles} />
+      ) : generating ? null : (
+        <View style={styles.reviewEmpty}>
+          <Text style={styles.reviewEmptyTitle}>No QA plan yet</Text>
+          <Text style={styles.reviewEmptyBody}>
+            Generate one after the agent has made changes worth testing.
+          </Text>
+          <Button
+            label="Generate QA plan"
+            onPress={generate}
+            variant="primary"
+            disabled={generating}
+            styles={styles}
+          />
         </View>
-      ) : (
-        <Empty text="No review plan yet." styles={styles} />
       )}
     </ScrollView>
   );
@@ -971,19 +1003,150 @@ function Header({
     </View>
   );
 }
-function Card({
-  children,
-  styles,
-}: React.PropsWithChildren<{ styles: Styles }>) {
-  return <View style={styles.card}>{children}</View>;
-}
-function Pill({ label, styles }: { label: string; styles: Styles }) {
+
+function GeneratingReview({ styles }: { styles: Styles }) {
   return (
-    <View style={styles.pill}>
-      <Text style={styles.pillText}>{label}</Text>
+    <View accessibilityLiveRegion="polite" style={styles.reviewProgress}>
+      <ActivityIndicator size="small" color={styles.loadingIndicator.color} />
+      <View style={styles.reviewProgressCopy}>
+        <Text style={styles.reviewProgressTitle}>Preparing your QA plan</Text>
+        <Text style={styles.muted}>
+          Reading the agent transcript and current changes. This can take a few
+          minutes.
+        </Text>
+      </View>
     </View>
   );
 }
+
+function PanelError({
+  title,
+  message,
+  onRetry,
+  styles,
+}: {
+  title: string;
+  message: string;
+  onRetry: () => void;
+  styles: Styles;
+}) {
+  return (
+    <View style={styles.reviewError}>
+      <View style={styles.reviewErrorCopy}>
+        <Text style={styles.reviewErrorTitle}>{title}</Text>
+        <Text style={styles.muted}>{message}</Text>
+      </View>
+      <Button
+        label="Try again"
+        onPress={onRetry}
+        variant="secondary"
+        styles={styles}
+      />
+    </View>
+  );
+}
+
+function QaPlan({ plan, styles }: { plan: ReviewPlan; styles: Styles }) {
+  const metrics = [
+    `${plan.transcriptMessageCount} transcript ${plan.transcriptMessageCount === 1 ? "message" : "messages"}`,
+    `${plan.files.length} changed ${plan.files.length === 1 ? "file" : "files"}`,
+    `+${plan.additions} −${plan.deletions}`,
+  ];
+  return (
+    <View style={styles.qaPlan}>
+      <View style={styles.reviewIntro}>
+        <Text style={styles.reviewSummary}>{plan.summary}</Text>
+        <View style={styles.reviewMetaRow}>
+          {metrics.map((metric) => (
+            <Text key={metric} style={styles.reviewMeta}>
+              {metric}
+            </Text>
+          ))}
+          <Text style={styles.reviewMeta}>
+            {generatedLabel(plan.generatedAt)}
+          </Text>
+        </View>
+      </View>
+
+      <ReviewSection title="What changed" styles={styles}>
+        <View style={styles.reviewGroup}>
+          {plan.changes.map((change, index) => (
+            <View
+              key={`${index}-${change}`}
+              style={[styles.changeRow, index > 0 && styles.reviewGroupDivider]}
+            >
+              <View style={styles.bullet} />
+              <Text style={styles.changeText}>{change}</Text>
+            </View>
+          ))}
+        </View>
+      </ReviewSection>
+
+      <ReviewSection title="Test these flows" styles={styles}>
+        <View style={styles.reviewGroup}>
+          {plan.flows.map((flow, index) => (
+            <View
+              key={flow.id}
+              style={[styles.flowRow, index > 0 && styles.reviewGroupDivider]}
+            >
+              <View style={styles.flowHeader}>
+                <View style={styles.flowTitleGroup}>
+                  <Text style={styles.flowSurface}>{flow.surface}</Text>
+                  <Text style={styles.flowTitle}>{flow.title}</Text>
+                </View>
+                {flow.priority === "high" ? (
+                  <Text style={styles.highPriority}>High priority</Text>
+                ) : null}
+              </View>
+              <Text style={styles.flowWhy}>{flow.why}</Text>
+              <View style={styles.flowSteps}>
+                {flow.steps.map((step, stepIndex) => (
+                  <View key={`${flow.id}-${stepIndex}`} style={styles.stepRow}>
+                    <Text style={styles.stepNumber}>{stepIndex + 1}</Text>
+                    <Text style={styles.stepText}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      </ReviewSection>
+
+      {plan.watchFor.length > 0 ? (
+        <ReviewSection title="Watch for" styles={styles}>
+          <View style={styles.reviewGroup}>
+            {plan.watchFor.map((item, index) => (
+              <View
+                key={`${index}-${item}`}
+                style={[
+                  styles.changeRow,
+                  index > 0 && styles.reviewGroupDivider,
+                ]}
+              >
+                <View style={styles.watchDot} />
+                <Text style={styles.changeText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </ReviewSection>
+      ) : null}
+    </View>
+  );
+}
+
+function ReviewSection({
+  title,
+  styles,
+  children,
+}: React.PropsWithChildren<{ title: string; styles: Styles }>) {
+  return (
+    <View style={styles.reviewSection}>
+      <Text style={styles.reviewSectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
 function Empty({ text, styles }: { text: string; styles: Styles }) {
   return (
     <View style={styles.empty}>
@@ -994,13 +1157,13 @@ function Empty({ text, styles }: { text: string; styles: Styles }) {
 function Button({
   label,
   onPress,
-  primary,
+  variant = "secondary",
   disabled,
   styles,
 }: {
   label: string;
   onPress: () => void;
-  primary?: boolean;
+  variant?: "primary" | "secondary" | "ghost";
   disabled?: boolean;
   styles: Styles;
 }) {
@@ -1011,11 +1174,20 @@ function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        primary && styles.primaryButton,
-        (pressed || disabled) && styles.pressed,
+        variant === "primary" && styles.primaryButton,
+        variant === "secondary" && styles.secondaryButton,
+        variant === "ghost" && styles.ghostButton,
+        pressed && styles.buttonPressed,
+        disabled && styles.buttonDisabled,
       ]}
     >
-      <Text style={[styles.buttonText, primary && styles.primaryButtonText]}>
+      <Text
+        style={[
+          styles.buttonText,
+          variant === "primary" && styles.primaryButtonText,
+          variant === "ghost" && styles.ghostButtonText,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -1084,8 +1256,14 @@ function Segments({
       {values.map((item) => (
         <Pressable
           key={item}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: value === item }}
           onPress={() => onChange(item)}
-          style={[styles.segment, value === item && styles.activeSegment]}
+          style={({ pressed }) => [
+            styles.segment,
+            value === item && styles.activeSegment,
+            pressed && styles.segmentPressed,
+          ]}
         >
           <Text
             style={value === item ? styles.segmentTextActive : styles.muted}
@@ -1104,6 +1282,27 @@ function message(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
+function savedLabel(updatedAt: string | null): string {
+  if (!updatedAt) return "Not saved yet";
+  const savedAt = new Date(updatedAt);
+  if (savedAt.getTime() <= 0 || Number.isNaN(savedAt.getTime())) {
+    return "Not saved yet";
+  }
+  return `Saved ${savedAt.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
+function generatedLabel(generatedAt: string): string {
+  return `Generated ${new Date(generatedAt).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
 type Styles = ReturnType<typeof useStyles>;
 function useStyles(theme: PluginTheme, compact: boolean) {
   return useMemo(
@@ -1111,18 +1310,25 @@ function useStyles(theme: PluginTheme, compact: boolean) {
       StyleSheet.create({
         screen: { flex: 1, backgroundColor: theme.colors.surface0 },
         content: { padding: compact ? 16 : 24, gap: 16 },
+        panelContent: {
+          width: "100%",
+          maxWidth: 760,
+          alignSelf: "center",
+          padding: compact ? 16 : 24,
+          gap: 16,
+        },
         center: {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: theme.colors.surface0,
         },
-        header: { flex: 1, gap: 4 },
+        header: { flex: 1, gap: 3 },
         title: {
           color: theme.colors.foreground,
-          fontSize: 24,
-          fontWeight: "700",
-          letterSpacing: -0.4,
+          fontSize: 17,
+          fontWeight: "600",
+          letterSpacing: -0.2,
         },
         muted: {
           color: theme.colors.foregroundMuted,
@@ -1133,101 +1339,299 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         errorText: {
           color: theme.colors.statusDanger,
           fontSize: 13,
-          marginBottom: 6,
         },
-        input: {
-          color: theme.colors.foreground,
-          backgroundColor: theme.colors.surface0,
-          borderColor: theme.colors.foregroundMuted,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderRadius: 12,
-          padding: 12,
-          minHeight: 44,
+        panelHeaderRow: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
         },
-        noteInput: { minHeight: 280, textAlignVertical: "top" },
-        actions: { flexDirection: compact ? "column" : "row", gap: 8 },
-        button: {
-          minHeight: 44,
+        noteSurface: {
+          minHeight: compact ? 320 : 400,
+          borderRadius: 14,
+          overflow: "hidden",
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.05,
+          ),
+        },
+        noteLoading: {
+          flex: 1,
+          minHeight: compact ? 320 : 400,
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 14,
-          borderRadius: 11,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.colors.foregroundMuted,
+        },
+        noteEditor: {
+          flex: 1,
+          minHeight: compact ? 320 : 400,
+          padding: compact ? 14 : 18,
+          color: theme.colors.foreground,
+          fontSize: 14,
+          lineHeight: 22,
+          textAlignVertical: "top",
+        },
+        panelFooter: {
+          flexDirection: compact ? "column" : "row",
+          alignItems: compact ? "stretch" : "center",
+          justifyContent: "space-between",
+          gap: 12,
+        },
+        saveState: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 12,
+          fontVariant: ["tabular-nums"],
+        },
+        footerActions: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: compact ? "flex-end" : "flex-start",
+          gap: 8,
+        },
+        button: {
+          minHeight: 36,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 13,
+          borderRadius: 9,
         },
         buttonText: {
           color: theme.colors.foreground,
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: "600",
         },
         primaryButton: {
           backgroundColor: theme.colors.accent,
-          borderColor: theme.colors.accent,
         },
         primaryButtonText: { color: theme.colors.accentForeground },
-        pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
-        row: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
+        secondaryButton: {
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.09,
+          ),
         },
-        stack: { gap: 10 },
-        card: {
-          backgroundColor: theme.colors.surface0,
-          borderColor: theme.colors.foregroundMuted,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderRadius: 13,
-          padding: 13,
-          gap: 7,
-        },
-        cardTitle: {
-          color: theme.colors.foreground,
-          fontSize: 14,
-          fontWeight: "600",
-        },
-        meta: { color: theme.colors.foregroundMuted, fontSize: 12 },
-        pill: {
-          minHeight: 24,
-          minWidth: 24,
-          paddingHorizontal: 8,
-          borderRadius: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: theme.colors.accent,
-        },
-        pillText: {
-          color: theme.colors.accentForeground,
-          fontSize: 11,
-          fontWeight: "700",
-        },
+        ghostButton: { backgroundColor: "transparent" },
+        ghostButtonText: { color: theme.colors.foregroundMuted },
+        buttonPressed: { opacity: 0.72, transform: [{ scale: 0.96 }] },
+        buttonDisabled: { opacity: 0.45 },
         segments: {
+          alignSelf: "flex-start",
           flexDirection: "row",
           padding: 3,
-          borderRadius: 11,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.colors.foregroundMuted,
+          borderRadius: 10,
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.055,
+          ),
         },
         segment: {
-          flex: 1,
-          minHeight: 38,
-          borderRadius: 8,
+          minWidth: 82,
+          minHeight: 32,
+          borderRadius: 7,
           alignItems: "center",
           justifyContent: "center",
+          paddingHorizontal: 12,
         },
-        activeSegment: { backgroundColor: theme.colors.accent },
+        activeSegment: {
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.105,
+          ),
+        },
+        segmentPressed: { opacity: 0.72 },
         segmentTextActive: {
-          color: theme.colors.accentForeground,
+          color: theme.colors.foreground,
           fontSize: 13,
           fontWeight: "600",
         },
         preview: {
-          minHeight: 280,
+          minHeight: compact ? 320 : 400,
           gap: 5,
-          padding: 12,
+          padding: compact ? 14 : 18,
+        },
+        reviewProgress: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 12,
+          padding: 14,
           borderRadius: 12,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.colors.foregroundMuted,
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.accent,
+            0.09,
+          ),
+        },
+        loadingIndicator: { color: theme.colors.accent },
+        reviewProgressCopy: { flex: 1, gap: 3 },
+        reviewProgressTitle: {
+          color: theme.colors.foreground,
+          fontSize: 13,
+          fontWeight: "600",
+        },
+        reviewError: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: 14,
+          borderRadius: 12,
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.statusDanger,
+            0.08,
+          ),
+        },
+        reviewErrorCopy: { flex: 1, gap: 3 },
+        reviewErrorTitle: {
+          color: theme.colors.statusDanger,
+          fontSize: 13,
+          fontWeight: "600",
+        },
+        reviewEmpty: {
+          minHeight: 300,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          paddingHorizontal: 24,
+        },
+        reviewEmptyTitle: {
+          color: theme.colors.foreground,
+          fontSize: 15,
+          fontWeight: "600",
+        },
+        reviewEmptyBody: {
+          maxWidth: 360,
+          color: theme.colors.foregroundMuted,
+          fontSize: 13,
+          lineHeight: 19,
+          textAlign: "center",
+          marginBottom: 4,
+        },
+        qaPlan: { gap: 24 },
+        reviewIntro: { gap: 9 },
+        reviewSummary: {
+          color: theme.colors.foreground,
+          fontSize: 15,
+          lineHeight: 22,
+          fontWeight: "500",
+        },
+        reviewMetaRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 10,
+        },
+        reviewMeta: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 11,
+          fontVariant: ["tabular-nums"],
+        },
+        reviewSection: { gap: 9 },
+        reviewSectionTitle: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 12,
+          fontWeight: "600",
+          textTransform: "uppercase",
+          letterSpacing: 0.45,
+        },
+        reviewGroup: {
+          overflow: "hidden",
+          borderRadius: 14,
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.05,
+          ),
+        },
+        reviewGroupDivider: {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.12,
+          ),
+        },
+        changeRow: {
+          minHeight: 44,
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 10,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+        },
+        bullet: {
+          width: 5,
+          height: 5,
+          marginTop: 7,
+          borderRadius: 3,
+          backgroundColor: theme.colors.accent,
+        },
+        watchDot: {
+          width: 5,
+          height: 5,
+          marginTop: 7,
+          borderRadius: 3,
+          backgroundColor: theme.colors.foregroundMuted,
+        },
+        changeText: {
+          flex: 1,
+          color: theme.colors.foreground,
+          fontSize: 13,
+          lineHeight: 19,
+        },
+        flowRow: { gap: 10, padding: compact ? 14 : 16 },
+        flowHeader: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+        },
+        flowTitleGroup: { flex: 1, gap: 3 },
+        flowSurface: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 11,
+          fontWeight: "600",
+          textTransform: "uppercase",
+          letterSpacing: 0.35,
+        },
+        flowTitle: {
+          color: theme.colors.foreground,
+          fontSize: 14,
+          lineHeight: 19,
+          fontWeight: "600",
+        },
+        highPriority: {
+          color: theme.colors.statusDanger,
+          fontSize: 11,
+          fontWeight: "600",
+        },
+        flowWhy: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 13,
+          lineHeight: 19,
+        },
+        flowSteps: { gap: 7, paddingTop: 2 },
+        stepRow: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 9,
+        },
+        stepNumber: {
+          width: 17,
+          color: theme.colors.foregroundMuted,
+          fontSize: 12,
+          lineHeight: 19,
+          textAlign: "right",
+          fontVariant: ["tabular-nums"],
+        },
+        stepText: {
+          flex: 1,
+          color: theme.colors.foreground,
+          fontSize: 13,
+          lineHeight: 19,
         },
         heading1: {
           color: theme.colors.foreground,
@@ -1276,12 +1680,9 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           lineHeight: 18,
         },
         empty: {
-          minHeight: 160,
+          minHeight: compact ? 292 : 364,
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 12,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.colors.foregroundMuted,
         },
         board: { gap: 12, paddingBottom: 12 },
         boardToolbar: {

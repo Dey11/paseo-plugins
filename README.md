@@ -4,7 +4,7 @@ Four trusted local plugins that extend Paseo with workspace notes and review wor
 
 ## Plugins
 
-- `workspace-companion` — Markdown notes, a unified draggable workspace board, and manual diff review plans.
+- `workspace-companion` — Markdown notes, a unified draggable workspace board, and transcript-aware manual QA plans.
 - `prompt-library` — reusable prompts in the sidebar and composer attachment picker.
 - `linear` — direct Linear issue search, comments, and status/priority updates with confirmation.
 - `dev-ports` — workspace-scoped listening ports, system-browser links, safe `SIGTERM`, and private Tailscale Serve controls.

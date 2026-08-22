@@ -305,6 +305,163 @@
       .confirm-strip .actions {
         justify-content: flex-end;
       }
+      .workspace-panels {
+        display: grid;
+        grid-template-columns: minmax(320px, 0.8fr) minmax(420px, 1.2fr);
+        gap: 24px;
+        max-width: 1120px;
+        margin-top: 42px;
+      }
+      .native-panel {
+        min-height: 620px;
+        padding: 20px;
+        border-radius: 16px;
+        background: var(--surface);
+      }
+      .panel-heading {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .panel-heading h1 {
+        font-size: 16px;
+      }
+      .panel-heading p {
+        margin-top: 3px;
+      }
+      .segments {
+        display: flex;
+        width: fit-content;
+        padding: 3px;
+        border-radius: 10px;
+        background: var(--raised);
+      }
+      .segment {
+        min-height: 30px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+      }
+      .segment-active {
+        color: var(--text);
+        background: var(--control);
+        box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+      }
+      .note-editor {
+        min-height: 390px;
+        margin-top: 12px;
+        padding: 16px;
+        border-radius: 14px;
+        background: var(--raised);
+      }
+      .note-editor textarea {
+        width: 100%;
+        min-height: 350px;
+        padding: 0;
+        resize: none;
+        border: 0;
+        outline: 0;
+        color: var(--text);
+        background: transparent;
+        font:
+          14px/1.55 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      .panel-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .save-state {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .footer-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .review-source {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        margin-bottom: 20px;
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .review-section + .review-section {
+        margin-top: 24px;
+      }
+      .review-label {
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .change-summary,
+      .flow-list {
+        overflow: hidden;
+        border-radius: 14px;
+        background: var(--raised);
+      }
+      .change-summary {
+        padding: 14px;
+      }
+      .change-summary p + p {
+        margin-top: 7px;
+      }
+      .flow-row {
+        padding: 15px;
+      }
+      .flow-row + .flow-row {
+        border-top: 1px solid var(--line);
+      }
+      .flow-title {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .priority {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+      .priority-high {
+        color: var(--danger);
+      }
+      .flow-reason {
+        margin-top: 4px;
+      }
+      .steps {
+        margin: 11px 0 0;
+        padding-left: 20px;
+        color: var(--text);
+      }
+      .steps li + li {
+        margin-top: 5px;
+      }
+      .watch-list {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+      .watch-list li + li {
+        margin-top: 5px;
+      }
+      @media (max-width: 860px) {
+        .workspace-panels {
+          grid-template-columns: 1fr;
+        }
+      }
       @media (prefers-reduced-motion: no-preference) {
         .card,
         button {
@@ -494,6 +651,117 @@
               <button class="primary">Confirm update</button>
             </div>
           </div>
+        </div>
+      </section>
+      <section id="workspace-panels" class="workspace-panels">
+        <div class="native-panel">
+          <div class="panel-heading">
+            <div>
+              <h1>Notes</h1>
+              <p>Workspace context shared with this agent</p>
+            </div>
+          </div>
+          <div class="segments" aria-label="Note view">
+            <button class="segment segment-active">Write</button>
+            <button class="segment">Preview</button>
+          </div>
+          <div class="note-editor">
+            <textarea aria-label="Workspace note">
+## Decisions
+
+- Keep the board limited to five states
+- QA the drag interaction on desktop
+
+## Follow-ups
+
+- Verify compact layout on iPhone
+- Recheck the dev-server browser handoff</textarea>
+          </div>
+          <div class="panel-footer">
+            <span class="save-state">Unsaved changes</span>
+            <div class="footer-actions">
+              <button class="ghost">Refine with agent</button>
+              <button class="primary">Save</button>
+            </div>
+          </div>
+        </div>
+        <div class="native-panel">
+          <div class="panel-heading">
+            <div>
+              <h1>QA review</h1>
+              <p>Manual checks inferred from the work and its conversation</p>
+            </div>
+            <button class="primary">Regenerate</button>
+          </div>
+          <div class="review-source">
+            <span>18 transcript messages</span>
+            <span>7 changed files</span>
+            <span>+184 −96</span>
+            <span>Generated 4:32 AM</span>
+          </div>
+          <section class="review-section">
+            <div class="review-label">What changed</div>
+            <div class="change-summary">
+              <p>
+                The workspace companion panels now use Paseo's quieter grouped
+                layout.
+              </p>
+              <p>
+                Review planning now turns the agent conversation and current
+                diff into manual QA flows.
+              </p>
+            </div>
+          </section>
+          <section class="review-section">
+            <div class="review-label">Test these flows</div>
+            <div class="flow-list">
+              <article class="flow-row">
+                <div class="flow-title">
+                  <h2>Generate a QA plan from an agent</h2>
+                  <span class="priority priority-high">High</span>
+                </div>
+                <p class="flow-reason">
+                  The review action now reads transcript context and
+                  working-tree changes.
+                </p>
+                <ol class="steps">
+                  <li>Focus an agent with completed workspace changes.</li>
+                  <li>Open QA review and choose Regenerate.</li>
+                  <li>
+                    Confirm the plan names the changed screens and gives
+                    executable checks.
+                  </li>
+                </ol>
+              </article>
+              <article class="flow-row">
+                <div class="flow-title">
+                  <h2>Edit and preview a workspace note</h2>
+                  <span class="priority">Normal</span>
+                </div>
+                <p class="flow-reason">
+                  The note editor, preview, dirty state, and save controls were
+                  redesigned.
+                </p>
+                <ol class="steps">
+                  <li>Edit Markdown and verify Unsaved changes appears.</li>
+                  <li>Switch between Write and Preview without losing text.</li>
+                  <li>
+                    Save, reopen the panel, and confirm the note persists.
+                  </li>
+                </ol>
+              </article>
+            </div>
+          </section>
+          <section class="review-section">
+            <div class="review-label">Watch for</div>
+            <ul class="watch-list">
+              <li>
+                Plans that describe implementation details instead of
+                user-visible checks
+              </li>
+              <li>Missing empty and error states on compact clients</li>
+            </ul>
+          </section>
         </div>
       </section>
     </main>

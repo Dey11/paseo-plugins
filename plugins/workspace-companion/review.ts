@@ -1,98 +1,105 @@
-import type { ReviewPlan } from "./contracts";
+import { QaAnalysisSchema, type QaAnalysis, type ReviewPlan } from "./qa";
 
 export interface GitReviewInput {
-  workspaceId: string;
-  generatedAt: string;
   nameStatus: string;
   numStat: string;
   porcelain: string;
   gitAvailable: boolean;
 }
 
-const CHECKS = [
-  {
-    id: "security",
-    title: "Authentication and permissions",
-    priority: "high" as const,
-    pattern: /auth|permission|policy|session|token|middleware/i,
-  },
-  {
-    id: "data",
-    title: "Migrations and data safety",
-    priority: "high" as const,
-    pattern: /migration|schema|prisma|sql|database|supabase/i,
-  },
-  {
-    id: "api",
-    title: "API contracts and error states",
-    priority: "medium" as const,
-    pattern: /api|route|handler|controller|graphql|rpc/i,
-  },
-  {
-    id: "config",
-    title: "Configuration and secrets",
-    priority: "high" as const,
-    pattern: /\.env|config|credential|secret|docker|deploy/i,
-  },
-  {
-    id: "ui",
-    title: "UI states and accessibility",
-    priority: "medium" as const,
-    pattern: /\.tsx$|\.jsx$|\.css$|component|screen|page/i,
-  },
-  {
-    id: "tests",
-    title: "Tests and verification",
-    priority: "normal" as const,
-    pattern: /test|spec|__tests__/i,
-  },
-  {
-    id: "dependencies",
-    title: "Dependency changes",
-    priority: "medium" as const,
-    pattern: /package\.json|bun\.lock|package-lock|yarn\.lock|pnpm-lock/i,
-  },
-  {
-    id: "docs",
-    title: "Documentation and operator steps",
-    priority: "normal" as const,
-    pattern: /readme|docs\/|\.md$/i,
-  },
-] as const;
+export interface WorkspaceChangeSummary {
+  files: string[];
+  additions: number;
+  deletions: number;
+  gitAvailable: boolean;
+}
 
-export function buildReviewPlan(input: GitReviewInput): ReviewPlan {
+export interface TranscriptEntry {
+  item: { type: string; text?: unknown };
+}
+
+export interface TranscriptContext {
+  text: string;
+  messageCount: number;
+}
+
+/** Reduces Git's machine-readable output to the evidence shown beside a QA plan. */
+export function summarizeGitChanges(
+  input: GitReviewInput,
+): WorkspaceChangeSummary {
   const files = collectFiles(input.nameStatus, input.porcelain);
   const { additions, deletions } = countChanges(input.numStat);
-  const checks: ReviewPlan["checks"] = CHECKS.filter((check) =>
-    files.some((file) => check.pattern.test(file)),
-  ).map((check) => ({
-    id: check.id,
-    title: check.title,
-    priority: check.priority,
-    detail: detailFor(check.id, files),
-  }));
+  return { files, additions, deletions, gitAvailable: input.gitAvailable };
+}
 
-  if (files.length > 0 && checks.length === 0) {
-    checks.push({
-      id: "behavior",
-      title: "Changed behavior",
-      priority: "normal",
-      detail:
-        "Trace the changed paths and verify the intended behavior end to end.",
-    });
-  }
+/** Keeps conversational intent while excluding reasoning and tool payloads. */
+export function buildTranscriptContext(
+  entries: readonly TranscriptEntry[],
+  maxCharacters = 50_000,
+): TranscriptContext {
+  const messages = entries.flatMap((entry) => {
+    const { item } = entry;
+    if (
+      (item.type !== "user_message" && item.type !== "assistant_message") ||
+      typeof item.text !== "string" ||
+      !item.text.trim()
+    ) {
+      return [];
+    }
+    const speaker = item.type === "user_message" ? "User" : "Agent";
+    return [`${speaker}:\n${item.text.trim()}`];
+  });
+  const joined = messages.join("\n\n");
+  return {
+    text:
+      joined.length <= maxCharacters
+        ? joined
+        : `[Earlier transcript omitted]\n\n${joined.slice(-maxCharacters)}`,
+    messageCount: messages.length,
+  };
+}
 
+/** Accepts schema-constrained JSON and the occasional defensive Markdown fence. */
+export function parseQaAnalysis(value: string): QaAnalysis {
+  const trimmed = value.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  return QaAnalysisSchema.parse(JSON.parse(unfenced));
+}
+
+export function buildReviewPlan(input: {
+  workspaceId: string;
+  sourceAgentId: string;
+  generatedAt: string;
+  changes: WorkspaceChangeSummary;
+  transcriptMessageCount: number;
+  analysis: QaAnalysis;
+}): ReviewPlan {
+  const ids = new Set<string>();
   return {
     workspaceId: input.workspaceId,
+    sourceAgentId: input.sourceAgentId,
     generatedAt: input.generatedAt,
-    summary: input.gitAvailable
-      ? `${files.length} changed ${files.length === 1 ? "file" : "files"}; +${additions} −${deletions}.`
-      : "This workspace is not a Git checkout, so no diff-based review plan is available.",
-    files,
-    additions,
-    deletions,
-    checks,
-    gitAvailable: input.gitAvailable,
+    summary: input.analysis.summary,
+    changes: input.analysis.changes,
+    flows: input.analysis.flows.map((flow, index) => {
+      const base = slug(flow.surface || flow.title) || `flow-${index + 1}`;
+      let id = base;
+      let suffix = 2;
+      while (ids.has(id)) {
+        id = `${base}-${suffix}`;
+        suffix += 1;
+      }
+      ids.add(id);
+      return { ...flow, id };
+    }),
+    watchFor: input.analysis.watchFor,
+    files: input.changes.files,
+    additions: input.changes.additions,
+    deletions: input.changes.deletions,
+    gitAvailable: input.changes.gitAvailable,
+    transcriptMessageCount: input.transcriptMessageCount,
   };
 }
 
@@ -125,9 +132,10 @@ function countChanges(numStat: string): {
   return { additions, deletions };
 }
 
-function detailFor(id: string, files: string[]): string {
-  const matched = files.filter((file) =>
-    CHECKS.find((check) => check.id === id)?.pattern.test(file),
-  );
-  return `Review ${matched.slice(0, 4).join(", ")}${matched.length > 4 ? ` and ${matched.length - 4} more` : ""}.`;
+function slug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
 }

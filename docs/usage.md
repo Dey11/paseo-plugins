@@ -4,10 +4,10 @@ All four plugins are installed against the local Paseo daemon. If the client was
 
 ## Workspace Companion
 
-- Open **Notes** from an agent's right panel or the command center. Edit Markdown in **Source**, inspect it in **Preview**, and save it to the daemon.
-- **Ask agent for draft** sends the current note to the agent whose panel is open. The returned Markdown stays as an unsaved draft until you review and save it.
+- Open **Notes** from an agent's right panel or the command center. Edit Markdown in **Write**, inspect it in **Preview**, and save it to the daemon.
+- **Refine with agent** sends the current note to the agent whose panel is open. The returned Markdown stays as an unsaved draft until you review and save it.
 - Open **Agent board** from the sidebar. There is one workspace board with **Running**, **Unreviewed**, **Recheck**, **Error**, and **Approved** columns. Drag cards to reorder any column on desktop/web; the order persists across reloads. Finished workspaces can also move among the three review columns, while Running and Error stay tied to live Paseo activity. Placements appear immediately while the daemon saves them. Use **Move to** for a non-drag review-state change, and select the card body to open its workspace.
-- Open **Review** from an agent panel. **Generate review plan** analyzes the current Git diff. **Start independent review** creates a child reviewer with Sol, high thinking, and auto-review mode.
+- Open **QA review** from an agent panel. **Generate QA plan** reads that agent's conversation and the current workspace changes, then starts a temporary Sol analyst to identify the screens and flows worth manually testing. The panel reports product behavior to exercise, concrete steps, and things to watch for; it does not perform a code review. The temporary analyst archives itself when finished.
 
 ## Prompt Library
 
