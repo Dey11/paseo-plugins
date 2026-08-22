@@ -4,7 +4,7 @@ import { openExternalHttpUrl } from "./external-url";
 describe("external dev server links", () => {
   test("prefers Paseo desktop's system-browser bridge", async () => {
     const calls: string[] = [];
-    await openExternalHttpUrl("https://codevps.example:3000", {
+    await openExternalHttpUrl("https://devbox.example:3000", {
       platform: "web",
       desktopOpen: (url) => {
         calls.push(`desktop:${url}`);
@@ -17,7 +17,7 @@ describe("external dev server links", () => {
       },
     });
 
-    expect(calls).toEqual(["desktop:https://codevps.example:3000"]);
+    expect(calls).toEqual(["desktop:https://devbox.example:3000"]);
   });
 
   test("opens a new browser tab outside Electron", async () => {

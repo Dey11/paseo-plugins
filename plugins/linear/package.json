@@ -1,7 +1,9 @@
 {
   "name": "linear",
+  "description": "Confirmed Linear issue operations inside Paseo agent workspaces.",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "dependencies": {
     "@linear/sdk": "^63.0.0"
   },

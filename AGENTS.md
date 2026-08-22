@@ -1,6 +1,6 @@
 # Paseo Productivity Plugins — AGENTS.md
 
-This repository contains trusted local Paseo plugins for workspace notes and review workflows, reusable prompts, Linear issue work, and development-port management. The plugins run against a local Paseo daemon and are intended for one developer controlling local or remote workspaces.
+This repository contains trusted local Paseo plugins for workspace notes and review workflows, reusable prompts, Linear issue work, and development-port management. Each plugin is independently installable on a local or remote Paseo daemon, and the repository is maintained for source distribution to other Paseo users.
 
 ## Non-Negotiable Core Principles
 
@@ -11,6 +11,7 @@ This repository contains trusted local Paseo plugins for workspace notes and rev
 - Only stop a same-user process whose current working directory is inside a currently registered Paseo workspace. Send `SIGTERM` only.
 - Use Tailscale Serve for private tailnet access. Never enable Funnel.
 - Never log or return credentials.
+- Keep public setup instructions accurate for a fresh clone. Do not depend on maintainer-specific paths without a documented portable alternative.
 
 ## Note
 
@@ -24,6 +25,7 @@ User instructions take precedence. Preserve unrelated files and running processe
 - **Dev Ports**: Same-user workspace process discovery, safe termination, and Tailscale Serve controls.
 - **Board state**: `running` and `error` are derived from Paseo activity; `unreviewed`, `recheck`, and `approved` are plugin-owned review markers.
 - **Paseo home**: The daemon-owned configuration directory, normally `~/.paseo`.
+- **Plugin config home**: Optional user configuration under `~/.config/paseo-plugins/` on the daemon machine.
 
 ## Development & Execution Rules
 
@@ -37,3 +39,4 @@ User instructions take precedence. Preserve unrelated files and running processe
 - Install with `paseo plugin install <directory>` and reload with `paseo plugin reload <id>`; never restart the daemon.
 - Do not exercise live Linear writes in automated tests.
 - Do not kill unknown processes, escalate to `SIGKILL`, or change an existing Tailscale Serve mapping without explicit user action.
+- Update the root README and the affected plugin README when requirements, configuration, permissions, commands, or visible behavior change.

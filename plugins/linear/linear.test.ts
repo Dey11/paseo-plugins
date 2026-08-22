@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { parseLinearCredential } from "./credential.server";
+import {
+  linearCredentialFiles,
+  parseLinearCredential,
+} from "./credential.server";
 import type { LinearIssue } from "./contracts";
 import { nextCursorForPage, runLinearOperation } from "./linear.server";
 import { describeMutation } from "./mutations";
@@ -29,6 +32,10 @@ describe("Linear integration", () => {
       ),
     ).toBe("lin_api_test");
     expect(parseLinearCredential("OTHER=x")).toBeNull();
+    expect(linearCredentialFiles("/home/ada")).toEqual([
+      "/home/ada/.config/paseo-plugins/linear.env",
+      "/home/ada/.config/hosting/credentials.env",
+    ]);
   });
 
   test("describes an external mutation before it is sent", () => {

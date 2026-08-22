@@ -1,7 +1,9 @@
 {
   "name": "prompt-library",
+  "description": "Reusable prompts in Paseo's sidebar and composer attachment picker.",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

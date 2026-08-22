@@ -10,23 +10,22 @@ export async function loadLinearCredential(): Promise<{
 }> {
   if (process.env.LINEAR_API_KEY?.trim())
     return { apiKey: process.env.LINEAR_API_KEY.trim(), source: "environment" };
-  try {
-    const text = await readFile(
-      join(homedir(), ".config", "hosting", "credentials.env"),
-      "utf8",
-    );
-    const apiKey = parseLinearCredential(text);
-    return { apiKey, source: apiKey ? "credential-file" : "missing" };
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "ENOENT"
-    )
-      return { apiKey: null, source: "missing" };
-    throw error;
+  for (const file of linearCredentialFiles()) {
+    try {
+      const apiKey = parseLinearCredential(await readFile(file, "utf8"));
+      if (apiKey) return { apiKey, source: "credential-file" };
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+    }
   }
+  return { apiKey: null, source: "missing" };
+}
+
+export function linearCredentialFiles(home = homedir()): string[] {
+  return [
+    join(home, ".config", "paseo-plugins", "linear.env"),
+    join(home, ".config", "hosting", "credentials.env"),
+  ];
 }
 
 export function parseLinearCredential(text: string): string | null {
@@ -44,4 +43,13 @@ export function parseLinearCredential(text: string): string | null {
     return value || null;
   }
   return null;
+}
+
+function isMissing(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
 }

@@ -1,7 +1,9 @@
 {
   "name": "dev-ports",
+  "description": "Safe workspace development-port controls for Paseo.",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

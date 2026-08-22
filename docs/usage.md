@@ -1,6 +1,6 @@
 # Using the plugins
 
-All four plugins are installed against the local Paseo daemon. If the client was already open, refresh its plugin surfaces or reconnect the client so the new navigation items appear.
+The plugins are independently installable against a Paseo daemon. If a client was already open during installation, refresh or reconnect it so the new contributions appear.
 
 ## Workspace Companion
 

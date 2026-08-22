@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import type { PaseoClient } from "@getpaseo/client";
 import { z } from "zod";
 import { QaAnalysisSchema, type ReviewPlan } from "./qa";
+import { loadQaAgentConfig } from "./qa-config.server";
 import {
   buildReviewPlan,
   buildTranscriptContext,
@@ -20,24 +21,21 @@ export async function generateQaReview(input: {
   agentId: string;
   cwd: string;
 }): Promise<ReviewPlan> {
-  const [changes, timeline] = await Promise.all([
+  const [changes, timeline, qaAgentConfig] = await Promise.all([
     inspectWorkspaceChanges(input.cwd),
     input.paseo.agents.ref(input.agentId).timeline.refetch({
       direction: "tail",
       limit: 0,
       projection: "projected",
     }),
+    loadQaAgentConfig(),
   ]);
   if (timeline.error) throw new Error(timeline.error);
   const transcript = buildTranscriptContext(timeline.entries);
   const analyst = await input.paseo.workspaces
     .ref(input.workspaceId)
     .agents.create({
-      config: {
-        provider: "codex/gpt-5.6-sol",
-        modeId: "auto-review",
-        thinkingOptionId: "high",
-      },
+      config: qaAgentConfig,
       parent: input.agentId,
       title: "Prepare QA plan",
       labels: {

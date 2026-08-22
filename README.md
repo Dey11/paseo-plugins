@@ -1,29 +1,96 @@
-# Paseo Productivity Plugins
+# Paseo plugins
 
-Four trusted local plugins that extend Paseo with workspace notes and review workflows, a reusable prompt library, Linear issue tools, and safe development-port controls.
+Four local plugins for [Paseo](https://paseo.sh): workspace notes and QA planning, reusable prompts, Linear issue work, and development-port controls.
 
-## Plugins
+> [!WARNING]
+> Paseo plugins are experimental, trusted code. Server-side plugin code runs without a sandbox on the daemon machine. Read the source before installing it, and expect Paseo API changes to require updates.
 
-- `workspace-companion` — Markdown notes, a unified draggable workspace board, and transcript-aware manual QA plans.
-- `prompt-library` — reusable prompts in the sidebar and composer attachment picker.
-- `linear` — direct Linear issue search, comments, and status/priority updates with confirmation.
-- `dev-ports` — workspace-scoped listening ports, system-browser links, safe `SIGTERM`, and private Tailscale Serve controls.
+## Included plugins
+
+| Plugin                                             | What it adds                                                                                         | Extra requirement                                          |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [Workspace Companion](plugins/workspace-companion) | Markdown notes, a draggable agent board, and transcript-aware manual QA plans                        | A configured Paseo coding-agent provider for QA generation |
+| [Prompt Library](plugins/prompt-library)           | A reusable prompt library in the sidebar and composer attachment picker                              | None                                                       |
+| [Linear](plugins/linear)                           | Issue search, comments, status changes, and priority changes                                         | A Linear personal API key                                  |
+| [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls | Linux daemon; Tailscale is optional                        |
+
+Each plugin is independently installable. You do not need to enable all four.
+
+## Quick start
+
+Requirements:
+
+- A current Paseo daemon and CLI with plugin support
+- [Bun](https://bun.sh) for dependency installation and verification
+- Git
+
+Clone the repository on the machine that runs the Paseo daemon:
+
+```bash
+git clone https://github.com/Dey11/paseo-plugins.git
+cd paseo-plugins
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
+```
+
+In Paseo, open **Settings → Plugins** and enable plugins. Then install only the directories you want:
+
+```bash
+paseo plugin install "$PWD/plugins/workspace-companion"
+paseo plugin install "$PWD/plugins/prompt-library"
+paseo plugin install "$PWD/plugins/linear"
+paseo plugin install "$PWD/plugins/dev-ports"
+paseo plugin ls
+```
+
+Every installed plugin should report `running`. Open the Command Center with **⌘K** on macOS or **Ctrl+K** on Windows and Linux to find its actions.
+
+See the [installation guide](docs/installation.md) for remote daemons, updates, removal, and plugin-specific configuration. The [usage guide](docs/usage.md) explains each workflow.
+
+## Updating
+
+Pull the repository, install any changed dependencies, run the checks, then reload the installed plugins:
+
+```bash
+git pull --ff-only
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
+paseo plugin reload workspace-companion
+paseo plugin reload prompt-library
+paseo plugin reload linear
+paseo plugin reload dev-ports
+```
+
+Reloading a plugin does not restart the Paseo daemon or interrupt unrelated agents.
+
+## Data and security
+
+Plugin state is stored under the daemon's Paseo home, normally `~/.paseo/plugin-data/`. The repository never needs access to your project files beyond the behavior described in each plugin guide.
+
+- Linear mutations require an explicit confirmation in the UI.
+- Dev Ports only shows same-user listeners inside registered Paseo workspaces. It sends `SIGTERM` and never force-kills a process.
+- Dev Ports creates private Tailscale Serve mappings. It never enables Tailscale Funnel.
+- Workspace Companion sends the focused agent transcript and current workspace changes to the provider configured for QA planning.
+
+Read [SECURITY.md](SECURITY.md) before installing the plugins on a shared daemon.
 
 ## Development
 
 ```bash
 bun install
+bun run format:check
 bun run test
 bun run typecheck
 ```
 
-Install or reload one plugin with Paseo's CLI:
+The suite uses Bun workspaces. Each plugin keeps its own Paseo manifest, strict TypeScript project, runtime contracts, and focused tests. See [CONTRIBUTING.md](CONTRIBUTING.md) for repository rules.
 
-```bash
-paseo plugin install ./plugins/workspace-companion
-paseo plugin reload workspace-companion
-```
+## Paseo compatibility
 
-The plugins persist private state below `~/.paseo/plugin-data/`. The Linear plugin reads `LINEAR_API_KEY` from the daemon environment or, on this development machine, the documented hosting credential file. It never returns or logs the key.
+Paseo does not currently provide a stable plugin distribution format. This repository distributes source directories that the daemon compiles locally. Use a recent Paseo release and consult the official [plugin quickstart](https://paseo.sh/docs/plugins) and [plugin reference](https://paseo.sh/docs/plugins/reference) when the API changes.
 
-See [docs/usage.md](docs/usage.md) for the user-facing workflows and safety behavior.
+## License
+
+[MIT](LICENSE)

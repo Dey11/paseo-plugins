@@ -1,7 +1,9 @@
 {
   "name": "workspace-companion",
+  "description": "Workspace notes, agent board, and transcript-aware QA plans for Paseo.",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
