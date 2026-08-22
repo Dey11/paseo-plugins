@@ -3,7 +3,7 @@
 Workspace Companion adds three Paseo tools:
 
 - **Notes**, a Markdown note attached to the current workspace, with Write and Preview modes and optional agent refinement.
-- **Agent board**, one draggable board for Running, Unreviewed, Recheck, Error, and Approved workspaces.
+- **Agent board**, one draggable board for Running, Unreviewed, Recheck, Error, and Approved workspaces, with real Paseo workspace archiving.
 - **QA review**, an on-demand manual test plan built from the focused agent's transcript and the current workspace changes.
 
 The plugin does not perform code review. QA plans name the screens and flows a person should exercise, with concrete steps and product-level risks to watch.
@@ -61,6 +61,8 @@ $PASEO_HOME/plugin-data/workspace-companion/
 
 - Running and Error come from live Paseo workspace and agent state. They cannot be assigned manually.
 - Desktop and web clients support drag-and-drop. The quiet **Move to** actions remain available for review-state changes.
+- Drag a card onto the **Archive** target in the board header to archive the actual Paseo workspace. The card disappears immediately and returns if Paseo rejects the request. Archiving closes the workspace runtime.
+- Touch and keyboard users can press **Archive** on a card and then **Confirm archive**. Archive is an action, not a sixth board status, so archived workspaces do not remain on the active board.
 - Notes are private to the daemon until you send or attach their contents elsewhere.
 - QA generation sends transcript and workspace evidence to the configured coding-agent provider.
 - Paseo does not yet let plugins add permanent controls to its built-in right-pane navigation. The plugin registers panel types and Command Center actions instead.

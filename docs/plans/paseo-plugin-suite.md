@@ -11,7 +11,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 ## Scope
 
 1. Workspace-scoped Markdown notes with write and preview modes; the current agent can refine a replacement note that the user reviews before saving.
-2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states.
+2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
 3. A global prompt library exposed through both a sidebar surface and composer attachment picker.
 4. A direct Linear GraphQL panel for search, issue detail, comments, status, and priority updates. Every write requires a second explicit confirmation.
 5. A manual QA plan generated from the focused agent's transcript and an overview of current workspace changes. It identifies user-facing screens and flows to test rather than reviewing code.
@@ -19,7 +19,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 
 ## Non-goals
 
-- Replacing Paseo's native workspace lifecycle.
+- Replacing Paseo's native workspace lifecycle or maintaining a separate plugin-only archive.
 - Automatic review popovers, automatic QA-plan generation, or persistent reviewer agents.
 - Killing processes outside registered workspaces or escalating to `SIGKILL`.
 - Public exposure through Tailscale Funnel.
@@ -32,6 +32,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 - The interface must work in Paseo's web, macOS, iOS, and Android hosts.
 - High-frequency board and command interactions remain intentionally low-motion.
 - Running and Error remain live states: they can be reordered within their own columns but cannot accept cross-column moves. Review cards can move among the three review columns, and touch or keyboard users retain explicit review-state actions.
+- Archiving uses Paseo's workspace SDK and closes the workspace runtime. The board removes the card optimistically, rolls it back when Paseo rejects the request, and keeps a two-step card action for touch and keyboard access.
 - Plugin state lives in `~/.paseo/plugin-data/<plugin-id>` and is written atomically.
 
 ## Chosen architecture
@@ -39,6 +40,8 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 Each plugin is a separate deep module with one responsibility and a small RPC interface. Shared contracts sit at the client/server seam. Filesystem, Git, Linear, `/proc`, and Tailscale details stay inside server adapters. Client surfaces render validated results and hold only temporary confirmation state.
 
 The workspace companion renders one card per workspace. A real agent or workspace failure takes precedence, followed by active work, then the stored review state. This keeps `Running` and `Error` truthful without mutating Paseo's native lifecycle. Review markers and the order of all five columns are persisted together in one atomic workflow document. The client applies placements optimistically and pauses polling while the daemon saves, so cards land immediately without a refetch snap-back. Desktop/web cards use the platform's drag events because Paseo's plugin client runtime does not expose its internal `@dnd-kit` packages; compact and keyboard flows use quiet “Move to” actions.
+
+Archive remains an action outside the workflow state machine. Desktop/web users drag a card to a header target, while touch and keyboard users use a two-step card action. The client calls `paseo.workspaces.archive`, removes the workspace and its agents from the query cache immediately, and restores the previous cache if the daemon reports an error or does not confirm `archivedAt`.
 
 QA-plan generation is asynchronous because plugin RPC requests have a shorter timeout than a high-reasoning analyst run. The command records a generating state immediately, the panel polls that state, and a temporary auto-archived Sol agent analyzes the focused agent's public projected timeline together with the current Git overview. The analyst receives a constrained JSON schema and explicit product-QA instructions: no edits, no code-quality findings, and no transcript instructions treated as commands.
 
@@ -78,4 +81,4 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. On 2026-08-22, Agent Board ordering was made persistent and movement optimistic, the Linear panel was rebuilt around Paseo's grouped rows and restrained hierarchy, and Workspace Companion's Notes and QA review panels received the same native-quality pass. QA review now generates on demand from the focused agent's transcript and current changes. Public installation guides and portable Linear and QA configuration were added before distribution. All 39 focused tests, all four strict typechecks, and formatting pass. Workspace Companion and Linear reload as `running`, and both retained logs end in `Plugin ready` without errors.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22 against Paseo's current public plugin contract and repository design guidance. On 2026-08-22, Agent Board ordering was made persistent and movement optimistic, the Linear panel was rebuilt around Paseo's grouped rows and restrained hierarchy, and Workspace Companion's Notes and QA review panels received the same native-quality pass. QA review now generates on demand from the focused agent's transcript and current changes. The Agent Board now archives real Paseo workspaces through a header drop target with optimistic rollback and an accessible two-step fallback. Public installation guides and portable Linear and QA configuration were added before distribution. All 42 focused tests, all four strict typechecks, and formatting pass. Workspace Companion and Linear reload as `running`, and both retained logs end in `Plugin ready` without errors.

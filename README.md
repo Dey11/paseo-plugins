@@ -7,12 +7,12 @@ Four local plugins for [Paseo](https://paseo.sh): workspace notes and QA plannin
 
 ## Included plugins
 
-| Plugin                                             | What it adds                                                                                         | Extra requirement                                          |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [Workspace Companion](plugins/workspace-companion) | Markdown notes, a draggable agent board, and transcript-aware manual QA plans                        | A configured Paseo coding-agent provider for QA generation |
-| [Prompt Library](plugins/prompt-library)           | A reusable prompt library in the sidebar and composer attachment picker                              | None                                                       |
-| [Linear](plugins/linear)                           | Issue search, comments, status changes, and priority changes                                         | A Linear personal API key                                  |
-| [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls | Linux daemon; Tailscale is optional                        |
+| Plugin                                             | What it adds                                                                                           | Extra requirement                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| [Workspace Companion](plugins/workspace-companion) | Markdown notes, a draggable agent board with workspace archiving, and transcript-aware manual QA plans | A configured Paseo coding-agent provider for QA generation |
+| [Prompt Library](plugins/prompt-library)           | A reusable prompt library in the sidebar and composer attachment picker                                | None                                                       |
+| [Linear](plugins/linear)                           | Issue search, comments, status changes, and priority changes                                           | A Linear personal API key                                  |
+| [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls   | Linux daemon; Tailscale is optional                        |
 
 Each plugin is independently installable. You do not need to enable all four.
 

@@ -29,6 +29,7 @@ import {
   type ReviewState,
   SaveNoteRpc,
 } from "./contracts";
+import { requireArchivedAt } from "./archive";
 import {
   BOARD_STATES,
   canPlaceBoardCard,
@@ -307,8 +308,13 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
   const queryClient = useQueryClient();
   const styles = useStyles(theme, layout.compact);
   const [moving, setMoving] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState<string | null>(null);
+  const [confirmingArchive, setConfirmingArchive] = useState<string | null>(
+    null,
+  );
   const [draggedCard, setDraggedCard] = useState<DraggedBoardCard | null>(null);
   const [dropTarget, setDropTarget] = useState<BoardDropTarget | null>(null);
+  const [archiveDropActive, setArchiveDropActive] = useState(false);
   const [notice, setNotice] = useState("");
   const board = useQuery<BoardQueryData>({
     queryKey: BOARD_QUERY_KEY,
@@ -328,7 +334,7 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
         workflow,
       };
     },
-    refetchInterval: moving || draggedCard ? false : 5_000,
+    refetchInterval: moving || archiving || draggedCard ? false : 5_000,
   });
 
   async function place(placement: BoardPlacement) {
@@ -345,6 +351,7 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
     }
 
     setMoving(placement.workspaceId);
+    setConfirmingArchive(null);
     setNotice("");
     void queryClient.cancelQueries({ queryKey: BOARD_QUERY_KEY });
     queryClient.setQueryData<BoardQueryData>(BOARD_QUERY_KEY, {
@@ -363,7 +370,55 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
       setMoving(null);
       setDraggedCard(null);
       setDropTarget(null);
+      setArchiveDropActive(false);
     }
+  }
+
+  async function archiveWorkspace(workspaceId: string) {
+    if (moving || archiving) return;
+    const previous = queryClient.getQueryData<BoardQueryData>(BOARD_QUERY_KEY);
+    if (!previous) return;
+    const workspace = previous.workspaces.find(
+      (entry) => entry.id === workspaceId,
+    );
+    if (!workspace) return;
+
+    setArchiving(workspaceId);
+    setConfirmingArchive(null);
+    setNotice("");
+    await queryClient.cancelQueries({ queryKey: BOARD_QUERY_KEY });
+    queryClient.setQueryData<BoardQueryData>(BOARD_QUERY_KEY, {
+      ...previous,
+      workspaces: previous.workspaces.filter(
+        (entry) => entry.id !== workspaceId,
+      ),
+      agents: previous.agents.filter(
+        (entry) => entry.workspaceId !== workspaceId,
+      ),
+    });
+
+    try {
+      const result = await paseo.workspaces.archive(workspaceId);
+      requireArchivedAt(result);
+      setNotice(`Archived ${workspace.title ?? workspace.name}.`);
+      await queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEY });
+    } catch (error) {
+      queryClient.setQueryData(BOARD_QUERY_KEY, previous);
+      setNotice(`Couldn’t archive the workspace. ${message(error)}`);
+    } finally {
+      setArchiving(null);
+      setDraggedCard(null);
+      setDropTarget(null);
+      setArchiveDropActive(false);
+    }
+  }
+
+  function requestArchive(workspaceId: string) {
+    if (confirmingArchive === workspaceId) {
+      void archiveWorkspace(workspaceId);
+      return;
+    }
+    setConfirmingArchive(workspaceId);
   }
 
   function drop(target: BoardDropTarget) {
@@ -445,11 +500,27 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
             Live activity and review status in one board
           </Text>
         </View>
-        <BoardToolbarButton
-          label="Refresh"
-          onPress={() => void board.refetch()}
-          styles={styles}
-        />
+        <View style={styles.boardToolbarActions}>
+          {layout.platform === "web" ? (
+            <WebArchiveDropZone
+              draggedCard={draggedCard}
+              active={archiveDropActive}
+              archiving={archiving !== null}
+              disabled={moving !== null || archiving !== null}
+              onDragOver={() => {
+                setArchiveDropActive(true);
+                setDropTarget(null);
+              }}
+              onDrop={(workspaceId) => void archiveWorkspace(workspaceId)}
+              styles={styles}
+            />
+          ) : null}
+          <BoardToolbarButton
+            label="Refresh"
+            onPress={() => void board.refetch()}
+            styles={styles}
+          />
+        </View>
       </View>
       {notice ? (
         <Text accessibilityLiveRegion="polite" style={styles.notice}>
@@ -468,16 +539,22 @@ export function AgentBoardSurface({ theme, host, layout }: PluginSurfaceProps) {
             state={state}
             cards={cardsByState[state]}
             onPlace={place}
-            moving={moving}
+            moving={moving ?? archiving}
             draggedCard={draggedCard}
             onDragStart={setDraggedCard}
             onDragEnd={() => {
               setDraggedCard(null);
               setDropTarget(null);
+              setArchiveDropActive(false);
             }}
-            onDragOver={setDropTarget}
+            onDragOver={(target) => {
+              setArchiveDropActive(false);
+              setDropTarget(target);
+            }}
             onDrop={drop}
             dropTarget={dropTarget}
+            confirmingArchive={confirmingArchive}
+            onRequestArchive={requestArchive}
             openWorkspace={(workspaceId) =>
               openWorkspace(host.id, workspaceId, layout.platform)
             }
@@ -526,6 +603,8 @@ function BoardColumn({
   onDragOver,
   onDrop,
   dropTarget,
+  confirmingArchive,
+  onRequestArchive,
   openWorkspace,
   web,
   styles,
@@ -541,6 +620,8 @@ function BoardColumn({
   onDragOver: (target: BoardDropTarget) => void;
   onDrop: (target: BoardDropTarget) => void;
   dropTarget: BoardDropTarget | null;
+  confirmingArchive: string | null;
+  onRequestArchive: (workspaceId: string) => void;
   openWorkspace: (id: string) => void;
   web: boolean;
   styles: Styles;
@@ -572,6 +653,8 @@ function BoardColumn({
               moving={moving === card.workspace.id}
               openWorkspace={openWorkspace}
               onPlace={onPlace}
+              confirmingArchive={confirmingArchive === card.workspace.id}
+              onRequestArchive={onRequestArchive}
               styles={styles}
             />
           );
@@ -628,6 +711,8 @@ function WorkspaceBoardCard({
   moving,
   openWorkspace,
   onPlace,
+  confirmingArchive,
+  onRequestArchive,
   styles,
 }: {
   card: BoardCard;
@@ -635,6 +720,8 @@ function WorkspaceBoardCard({
   moving: boolean;
   openWorkspace: (id: string) => void;
   onPlace: (placement: BoardPlacement) => void;
+  confirmingArchive: boolean;
+  onRequestArchive: (workspaceId: string) => void;
   styles: Styles;
 }) {
   const { workspace, agent } = card;
@@ -662,31 +749,105 @@ function WorkspaceBoardCard({
             : (agent?.provider ?? "No changes")}
         </Text>
       </Pressable>
-      {reviewState ? (
-        <View style={styles.moveRow}>
-          <Text style={styles.moveLabel}>Move to</Text>
-          {REVIEW_STATES.filter((state) => state !== reviewState).map(
-            (state) => (
-              <MoveAction
-                key={state}
-                label={titleCase(state)}
-                disabled={moving}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  onPlace({
-                    workspaceId: workspace.id,
-                    sourceState: card.state,
-                    targetState: state,
-                    targetIndex: Number.MAX_SAFE_INTEGER,
-                  });
-                }}
-                styles={styles}
-              />
-            ),
-          )}
-        </View>
-      ) : null}
+      <View style={styles.moveRow}>
+        {reviewState ? (
+          <>
+            <Text style={styles.moveLabel}>Move to</Text>
+            {REVIEW_STATES.filter((state) => state !== reviewState).map(
+              (state) => (
+                <MoveAction
+                  key={state}
+                  label={titleCase(state)}
+                  disabled={moving}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onPlace({
+                      workspaceId: workspace.id,
+                      sourceState: card.state,
+                      targetState: state,
+                      targetIndex: Number.MAX_SAFE_INTEGER,
+                    });
+                  }}
+                  styles={styles}
+                />
+              ),
+            )}
+          </>
+        ) : null}
+        <MoveAction
+          label={confirmingArchive ? "Confirm archive" : "Archive"}
+          disabled={moving}
+          destructive
+          onPress={(event) => {
+            event.stopPropagation();
+            onRequestArchive(workspace.id);
+          }}
+          styles={styles}
+        />
+      </View>
     </View>
+  );
+}
+
+function WebArchiveDropZone({
+  draggedCard,
+  active,
+  archiving,
+  disabled,
+  onDragOver,
+  onDrop,
+  styles,
+}: {
+  draggedCard: DraggedBoardCard | null;
+  active: boolean;
+  archiving: boolean;
+  disabled: boolean;
+  onDragOver: () => void;
+  onDrop: (workspaceId: string) => void;
+  styles: Styles;
+}) {
+  const armed = draggedCard !== null && !disabled;
+  const label = archiving
+    ? "Archiving…"
+    : active
+      ? "Release to archive"
+      : armed
+        ? "Drop to archive"
+        : "Archive";
+
+  return (
+    <div
+      aria-label="Archive workspace drop zone"
+      onDragOver={(event) => {
+        if (!armed) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "move";
+        onDragOver();
+      }}
+      onDrop={(event) => {
+        if (!draggedCard || disabled) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onDrop(draggedCard.workspaceId);
+      }}
+      style={
+        StyleSheet.flatten([
+          styles.archiveDropZone,
+          armed && styles.archiveDropZoneArmed,
+          active && styles.archiveDropZoneActive,
+        ]) as unknown as React.CSSProperties
+      }
+    >
+      <Text
+        style={[
+          styles.archiveDropZoneText,
+          armed && styles.archiveDropZoneTextArmed,
+        ]}
+      >
+        {label}
+      </Text>
+    </div>
   );
 }
 
@@ -1219,11 +1380,13 @@ function MoveAction({
   label,
   onPress,
   disabled,
+  destructive = false,
   styles,
 }: {
   label: string;
   onPress: (event: GestureResponderEvent) => void;
   disabled?: boolean;
+  destructive?: boolean;
   styles: Styles;
 }) {
   return (
@@ -1236,7 +1399,14 @@ function MoveAction({
         (pressed || disabled) && styles.boardControlPressed,
       ]}
     >
-      <Text style={styles.moveActionText}>{label}</Text>
+      <Text
+        style={[
+          styles.moveActionText,
+          destructive && styles.moveActionTextDestructive,
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -1691,6 +1861,11 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           justifyContent: "space-between",
           gap: 12,
         },
+        boardToolbarActions: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+        },
         boardHeaderTitle: {
           color: theme.colors.foreground,
           fontSize: 15,
@@ -1708,6 +1883,37 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           fontWeight: "400",
         },
         boardControlPressed: { opacity: 0.7 },
+        archiveDropZone: {
+          width: 140,
+          minHeight: 36,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 12,
+          borderRadius: 9,
+        },
+        archiveDropZoneArmed: {
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.statusDanger,
+            0.08,
+          ),
+        },
+        archiveDropZoneActive: {
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.statusDanger,
+            0.16,
+          ),
+        },
+        archiveDropZoneText: {
+          color: theme.colors.foregroundMuted,
+          fontSize: 13,
+          fontWeight: "400",
+        },
+        archiveDropZoneTextArmed: {
+          color: theme.colors.statusDanger,
+          fontWeight: "500",
+        },
         column: {
           width: compact ? 272 : 292,
           minHeight: 420,
@@ -1829,6 +2035,9 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           color: theme.colors.foregroundMuted,
           fontSize: 11,
           fontWeight: "500",
+        },
+        moveActionTextDestructive: {
+          color: theme.colors.statusDanger,
         },
         webDragCardActive: { opacity: 0.78 },
         webDropMarker: {
