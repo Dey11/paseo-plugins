@@ -44,6 +44,7 @@ export default function contribute(plugin: PluginContext) {
     title: "Workspace notes",
     icon: "ListPlus",
     context: "workspace",
+    locations: ["explorer"],
     Component: NotesPanel,
   });
   plugin.addCommandCenterItem({
@@ -58,7 +59,7 @@ export default function contribute(plugin: PluginContext) {
     title: "Open workspace notes",
     icon: "ListPlus",
     context: "workspace",
-    onSelect: ({ openPanel }) => openPanel("notes"),
+    onSelect: ({ openPanel }) => openPanel("notes", { location: "explorer" }),
   });
   return () => {};
 }

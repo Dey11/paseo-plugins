@@ -16,7 +16,7 @@ paseo plugin install "$PWD/plugins/workspace-companion"
 paseo plugin ls
 ```
 
-Open **Agent board** in the sidebar. Open **Workspace notes** from the workspace **+** menu or the Command Center.
+Open **Agent board** in the sidebar. Open **Workspace notes** from the Explorer **+** menu or the Command Center. Notes opens in the right-side Explorer beside Changes and Files.
 
 ## Stored data
 
