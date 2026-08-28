@@ -13,6 +13,15 @@ export function describeMutation(
       return `Move ${issue.identifier} from ${issue.state} to ${issue.states.find((state) => state.id === mutation.stateId)?.name ?? "the selected state"}.`;
     case "priority":
       return `Change ${issue.identifier} priority from ${issue.priorityLabel} to ${PRIORITIES[mutation.priority]}.`;
+    case "assignee": {
+      const current = issue.assignee?.name ?? "Unassigned";
+      const next = mutation.assigneeId
+        ? (issue.assignees.find(
+            (assignee) => assignee.id === mutation.assigneeId,
+          )?.name ?? "the selected teammate")
+        : "Unassigned";
+      return `Change ${issue.identifier} assignee from ${current} to ${next}.`;
+    }
   }
 }
 

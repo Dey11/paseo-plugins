@@ -2,13 +2,13 @@
 
 The Linear plugin adds a workspace panel for:
 
-- Searching issues by text
+- Searching issues by text with Previous/Next pagination
 - Reading issue descriptions and comments
-- Opening the canonical issue in a browser
-- Changing status or priority
+- Opening the canonical issue in the operating system browser
+- Changing status, priority, or assignee
 - Adding comments
 
-Every write creates a confirmation card. Linear receives nothing until you press **Confirm update**.
+Every write creates a confirmation card. Linear receives nothing until you press **Confirm update**. The assignee picker lists active, assignable members of the issue's team and supports returning the issue to **Unassigned**.
 
 ## Install
 

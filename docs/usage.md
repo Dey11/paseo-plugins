@@ -11,8 +11,9 @@ The plugins are independently installable against a Paseo daemon. If a client wa
 
 ## Linear
 
-- Open **Linear** from the workspace **+** menu or Command Center. Search by issue text, page through all matching issues, open an issue, review comments, and open the canonical Linear URL.
-- Choosing a status, priority, or comment creates a confirmation card. Nothing is written to Linear until **Confirm update** is pressed.
+- Open **Linear** from the workspace **+** menu or Command Center. Search by issue text, use **Previous** and **Next** at the bottom to page through matching issues, open an issue, and review its comments.
+- **Open in Linear** sends that issue's canonical URL to the operating system browser instead of Paseo's embedded browser pane.
+- Choosing a status, priority, assignee, or comment creates a confirmation card. Nothing is written to Linear until **Confirm update** is pressed. The assignee picker contains active, assignable members of the issue's team.
 
 ## Dev Ports
 

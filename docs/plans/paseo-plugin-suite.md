@@ -12,7 +12,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 
 1. Workspace-scoped Markdown notes with write and preview modes; the current agent can refine a replacement note that the user reviews before saving.
 2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
-3. A workspace-context Linear GraphQL panel for search, issue detail, comments, status, and priority updates. Every write requires a second explicit confirmation.
+3. A workspace-context Linear GraphQL panel with cursor-backed page navigation, issue detail, comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
 4. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
 
 ## Non-goals
@@ -42,7 +42,7 @@ The workspace companion renders one card per workspace. A real agent or workspac
 
 Archive remains an action outside the workflow state machine. Desktop/web users drag a card to a header target, while touch and keyboard users use a two-step card action. The client calls `paseo.workspaces.archive`, removes the workspace and its agents from the query cache immediately, and restores the previous cache if the daemon reports an error or does not confirm `archivedAt`.
 
-Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Dev Ports calls the desktop preload's allowlisted `opener.openUrl` bridge when present, then falls back to a normal browser tab or native Linking.
+Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Dev Ports and Linear call the desktop preload's allowlisted `opener.openUrl` bridge when present, then fall back to a normal browser tab or native Linking.
 
 ## Alternatives considered
 
@@ -76,4 +76,4 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22. Agent Board ordering is persistent and optimistic, and archiving uses a header drop target with rollback plus an accessible two-step fallback. On 2026-08-28, Prompt Library and QA Review were removed, while Workspace Notes and Linear moved to workspace-context panels so Paseo lists them in its native workspace tab menu. The maintained suite passes 34 focused tests, all three strict typechecks, and formatting; Workspace Companion and Linear reload as `running` with clean `Plugin ready` logs.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22. Agent Board ordering is persistent and optimistic, and archiving uses a header drop target with rollback plus an accessible two-step fallback. On 2026-08-28, Prompt Library and QA Review were removed, while Workspace Notes and Linear moved to workspace-context panels so Paseo lists them in its native workspace tab menu. Linear now uses bottom Previous/Next navigation, compact field controls, confirmed assignee changes, and operating-system browser links. The maintained suite passes 37 focused tests, all three strict typechecks, and formatting; Workspace Companion and Linear reload as `running` with clean `Plugin ready` logs.

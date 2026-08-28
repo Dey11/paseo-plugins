@@ -24,11 +24,16 @@ export const LinearCommentSchema = z.object({
   createdAt: z.string(),
   user: z.string(),
 });
+export const LinearAssigneeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
 export const LinearIssueSchema = LinearIssueSummarySchema.extend({
   description: z.string(),
   teamId: z.string(),
   teamName: z.string(),
-  assignee: z.string().nullable(),
+  assignee: LinearAssigneeSchema.nullable(),
+  assignees: z.array(LinearAssigneeSchema),
   comments: z.array(LinearCommentSchema),
   states: z.array(LinearStateSchema),
 });
@@ -74,6 +79,11 @@ export const LinearMutationSchema = z.discriminatedUnion("type", [
     type: z.literal("priority"),
     issueId: z.string().min(1),
     priority: z.number().int().min(0).max(4),
+  }),
+  z.object({
+    type: z.literal("assignee"),
+    issueId: z.string().min(1),
+    assigneeId: z.string().min(1).nullable(),
   }),
 ]);
 export type LinearMutation = z.infer<typeof LinearMutationSchema>;

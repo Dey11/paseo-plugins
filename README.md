@@ -10,7 +10,7 @@ Three local plugins for [Paseo](https://paseo.sh): workspace notes and an agent 
 | Plugin                                             | What it adds                                                                                         | Extra requirement                   |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | [Workspace Companion](plugins/workspace-companion) | Workspace-tab Markdown notes and a draggable agent board with workspace archiving                    | None                                |
-| [Linear](plugins/linear)                           | Workspace-tab issue search, comments, status changes, and priority changes                           | A Linear personal API key           |
+| [Linear](plugins/linear)                           | Paged issue search, comments, assignee, status, and priority changes in a workspace tab              | A Linear personal API key           |
 | [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls | Linux daemon; Tailscale is optional |
 
 Each plugin is independently installable. You do not need to enable all three.

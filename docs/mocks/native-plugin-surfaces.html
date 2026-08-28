@@ -205,6 +205,7 @@
         margin-bottom: 14px;
       }
       .linear-search,
+      .assignee-search,
       .linear-comment {
         width: 100%;
         min-height: 42px;
@@ -247,9 +248,10 @@
       }
       .issue-state,
       .choice {
-        padding: 5px 9px;
+        min-height: 30px;
+        padding: 4px 8px;
         border: 0;
-        border-radius: 999px;
+        border-radius: 8px;
         color: var(--muted);
         background: var(--control);
         font-size: 12px;
@@ -290,6 +292,28 @@
       .choice-active {
         color: var(--accent);
         background: color-mix(in srgb, var(--accent) 14%, var(--raised));
+      }
+      .pager {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .pager .page-number {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .pager .secondary:last-child {
+        justify-self: end;
+      }
+      .assignee-search {
+        min-height: 34px;
+        margin-top: 8px;
+        padding: 6px 9px;
+        border-radius: 9px;
+        font-size: 12px;
       }
       .linear-comment {
         min-height: 86px;
@@ -605,10 +629,15 @@
               </div>
             </article>
           </div>
+          <div class="pager" aria-label="Issue pages">
+            <button class="secondary" disabled>Previous</button>
+            <span class="page-number">Page 1</span>
+            <button class="secondary">Next</button>
+          </div>
         </div>
         <div class="linear-panel">
           <div class="detail-actions">
-            <button class="ghost">Back</button>
+            <button class="secondary">← Back</button>
             <button class="secondary">Open in Linear ↗</button>
           </div>
           <span class="issue-id">SYS-218</span>
@@ -632,6 +661,15 @@
                 <button class="choice">Urgent</button>
                 <button class="choice choice-active">High</button>
                 <button class="choice">Normal</button>
+              </div>
+            </div>
+            <div class="field-section">
+              <div class="section-label" style="margin-top: 0">Assignee</div>
+              <input class="assignee-search" placeholder="Find a teammate" />
+              <div class="choice-row">
+                <button class="choice">Unassigned</button>
+                <button class="choice choice-active">Ada Lovelace</button>
+                <button class="choice">Grace Hopper</button>
               </div>
             </div>
           </div>

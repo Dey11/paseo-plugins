@@ -22,6 +22,15 @@ import {
   type LinearMutation,
 } from "./contracts";
 import { describeMutation } from "./mutations";
+import { openExternalLinearUrl } from "./external-url";
+
+declare global {
+  interface Window {
+    paseoDesktop?: {
+      opener?: { openUrl?: (url: string) => Promise<void> };
+    };
+  }
+}
 
 const PRIORITIES = ["No priority", "Urgent", "High", "Normal", "Low"] as const;
 
@@ -44,6 +53,7 @@ export function LinearPanel({ theme, layout }: PluginWorkspacePanelProps) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [selectingId, setSelectingId] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
   const status = useQuery({
     queryKey: ["linear-status"],
     queryFn: () => statusRpc({}),
@@ -58,7 +68,10 @@ export function LinearPanel({ theme, layout }: PluginWorkspacePanelProps) {
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 220);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPageIndex(0);
+    }, 220);
     return () => clearTimeout(timer);
   }, [query]);
   useEffect(() => {
@@ -67,7 +80,44 @@ export function LinearPanel({ theme, layout }: PluginWorkspacePanelProps) {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const issueItems = issues.data?.pages.flatMap((page) => page.items) ?? [];
+  const issueItems = issues.data?.pages[pageIndex]?.items ?? [];
+
+  async function nextPage() {
+    const loadedPages = issues.data?.pages.length ?? 0;
+    if (pageIndex + 1 < loadedPages) {
+      setPageIndex((current) => current + 1);
+      return;
+    }
+    if (!issues.hasNextPage) return;
+
+    const result = await issues.fetchNextPage();
+    if (!result.isError && (result.data?.pages.length ?? 0) > loadedPages) {
+      setPageIndex((current) => current + 1);
+    }
+  }
+
+  async function openIssueInBrowser(url: string) {
+    setNotice(null);
+    try {
+      const desktopOpen =
+        typeof window !== "undefined" &&
+        typeof window.paseoDesktop?.opener?.openUrl === "function"
+          ? (value: string) => window.paseoDesktop?.opener?.openUrl?.(value)
+          : undefined;
+      await openExternalLinearUrl(url, {
+        platform: layout.platform,
+        desktopOpen,
+        browserOpen: (value) => {
+          if (typeof window !== "undefined") {
+            window.open(value, "_blank", "noopener,noreferrer");
+          }
+        },
+        nativeOpen: Linking.openURL,
+      });
+    } catch (error) {
+      setNotice({ tone: "danger", text: message(error) });
+    }
+  }
 
   async function select(id: string) {
     setSelectingId(id);
@@ -160,6 +210,7 @@ export function LinearPanel({ theme, layout }: PluginWorkspacePanelProps) {
           onQueue={queue}
           onCancel={() => setPending(null)}
           onConfirm={confirm}
+          onOpenExternal={openIssueInBrowser}
           styles={styles}
         />
       ) : (
@@ -170,11 +221,17 @@ export function LinearPanel({ theme, layout }: PluginWorkspacePanelProps) {
           loading={issues.isLoading}
           error={issues.isError ? message(issues.error) : null}
           selectingId={selectingId}
-          hasNextPage={issues.hasNextPage}
-          fetchingNextPage={issues.isFetchingNextPage}
+          pageNumber={pageIndex + 1}
+          hasPreviousPage={pageIndex > 0}
+          hasNextPage={
+            pageIndex + 1 < (issues.data?.pages.length ?? 0) ||
+            Boolean(issues.hasNextPage)
+          }
+          changingPage={issues.isFetchingNextPage}
           onQueryChange={setQuery}
           onSelect={select}
-          onLoadMore={() => issues.fetchNextPage()}
+          onPreviousPage={() => setPageIndex((current) => current - 1)}
+          onNextPage={nextPage}
           styles={styles}
         />
       )}
@@ -189,11 +246,14 @@ function IssueSearch({
   loading,
   error,
   selectingId,
+  pageNumber,
+  hasPreviousPage,
   hasNextPage,
-  fetchingNextPage,
+  changingPage,
   onQueryChange,
   onSelect,
-  onLoadMore,
+  onPreviousPage,
+  onNextPage,
   styles,
 }: {
   query: string;
@@ -202,11 +262,14 @@ function IssueSearch({
   loading: boolean;
   error: string | null;
   selectingId: string | null;
+  pageNumber: number;
+  hasPreviousPage: boolean;
   hasNextPage: boolean;
-  fetchingNextPage: boolean;
+  changingPage: boolean;
   onQueryChange: (value: string) => void;
   onSelect: (id: string) => void;
-  onLoadMore: () => Promise<unknown>;
+  onPreviousPage: () => void;
+  onNextPage: () => Promise<void>;
   styles: Styles;
 }) {
   return (
@@ -250,14 +313,28 @@ function IssueSearch({
         />
       )}
 
-      {hasNextPage ? (
-        <Button
-          label={fetchingNextPage ? "Loading..." : "Load more"}
-          onPress={onLoadMore}
-          disabled={fetchingNextPage}
-          variant="ghost"
-          styles={styles}
-        />
+      {hasPreviousPage || hasNextPage ? (
+        <View accessibilityRole="toolbar" style={styles.pager}>
+          <View style={styles.pagerStart}>
+            <Button
+              label="Previous"
+              onPress={onPreviousPage}
+              disabled={!hasPreviousPage || changingPage}
+              variant="secondary"
+              styles={styles}
+            />
+          </View>
+          <Text style={styles.pageNumber}>Page {pageNumber}</Text>
+          <View style={styles.pagerEnd}>
+            <Button
+              label={changingPage ? "Loading..." : "Next"}
+              onPress={onNextPage}
+              disabled={!hasNextPage || changingPage}
+              variant="secondary"
+              styles={styles}
+            />
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -319,6 +396,7 @@ function IssueDetail({
   onQueue,
   onCancel,
   onConfirm,
+  onOpenExternal,
   styles,
 }: {
   issue: LinearIssue;
@@ -330,15 +408,28 @@ function IssueDetail({
   onQueue: (mutation: LinearMutation) => void;
   onCancel: () => void;
   onConfirm: () => Promise<void>;
+  onOpenExternal: (url: string) => Promise<void>;
   styles: Styles;
 }) {
+  const [assigneeQuery, setAssigneeQuery] = useState("");
+  const visibleAssignees = issue.assignees.filter((assignee) =>
+    assignee.name
+      .toLocaleLowerCase()
+      .includes(assigneeQuery.trim().toLocaleLowerCase()),
+  );
+
   return (
     <View style={styles.stackLarge}>
       <View style={styles.detailActions}>
-        <Button label="Back" onPress={onBack} variant="ghost" styles={styles} />
+        <Button
+          label="← Back"
+          onPress={onBack}
+          variant="secondary"
+          styles={styles}
+        />
         <Button
           label="Open in Linear ↗"
-          onPress={() => Linking.openURL(issue.url)}
+          onPress={() => onOpenExternal(issue.url)}
           variant="secondary"
           role="link"
           styles={styles}
@@ -349,7 +440,7 @@ function IssueDetail({
         <Text style={styles.identifier}>{issue.identifier}</Text>
         <Text style={styles.issueTitle}>{issue.title}</Text>
         <Text style={styles.muted}>
-          {issue.teamName} · {issue.assignee ?? "Unassigned"}
+          {issue.teamName} · {issue.assignee?.name ?? "Unassigned"}
         </Text>
         {issue.description ? (
           <Text style={styles.description}>{issue.description}</Text>
@@ -388,6 +479,48 @@ function IssueDetail({
               styles={styles}
             />
           ))}
+        </FieldSection>
+        <FieldSection label="Assignee" divider styles={styles}>
+          <TextInput
+            accessibilityLabel="Find a Linear assignee"
+            value={assigneeQuery}
+            onChangeText={setAssigneeQuery}
+            placeholder="Find a teammate"
+            placeholderTextColor={styles.placeholder.color}
+            style={styles.assigneeInput}
+          />
+          <Choice
+            label="Unassigned"
+            active={issue.assignee === null}
+            disabled={updating || issue.assignee === null}
+            onPress={() =>
+              onQueue({
+                type: "assignee",
+                issueId: issue.id,
+                assigneeId: null,
+              })
+            }
+            styles={styles}
+          />
+          {visibleAssignees.map((assignee) => (
+            <Choice
+              key={assignee.id}
+              label={assignee.name}
+              active={assignee.id === issue.assignee?.id}
+              disabled={updating || assignee.id === issue.assignee?.id}
+              onPress={() =>
+                onQueue({
+                  type: "assignee",
+                  issueId: issue.id,
+                  assigneeId: assignee.id,
+                })
+              }
+              styles={styles}
+            />
+          ))}
+          {visibleAssignees.length === 0 && assigneeQuery.trim() ? (
+            <Text style={styles.meta}>No matching teammates</Text>
+          ) : null}
         </FieldSection>
       </View>
 
@@ -504,6 +637,7 @@ function Button({
     <Pressable
       accessibilityRole={role}
       disabled={disabled}
+      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -544,6 +678,7 @@ function Choice({
       accessibilityRole="button"
       accessibilityState={{ selected: active, disabled }}
       disabled={disabled}
+      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
         styles.choice,
@@ -746,6 +881,11 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         fontSize: 11,
         lineHeight: 16,
       },
+      pageNumber: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 12,
+        fontVariant: ["tabular-nums"],
+      },
       placeholder: { color: theme.colors.foregroundMuted },
       notice: { color: theme.colors.accent, fontSize: 13, lineHeight: 19 },
       noticeDanger: {
@@ -769,6 +909,14 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         alignItems: "center",
         gap: 8,
       },
+      pager: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+      },
+      pagerStart: { flex: 1, alignItems: "flex-start" },
+      pagerEnd: { flex: 1, alignItems: "flex-end" },
       input: {
         minHeight: 44,
         color: theme.colors.foreground,
@@ -781,6 +929,17 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         fontSize: 14,
       },
       commentInput: { minHeight: 96, textAlignVertical: "top" },
+      assigneeInput: {
+        width: "100%",
+        minHeight: 34,
+        color: theme.colors.foreground,
+        backgroundColor: control,
+        borderWidth: 0,
+        borderRadius: 8,
+        paddingHorizontal: 9,
+        paddingVertical: 6,
+        fontSize: 12,
+      },
       issueList: {
         overflow: "hidden",
         borderRadius: 13,
@@ -794,10 +953,10 @@ function useStyles(theme: PluginTheme, compact: boolean) {
       },
       statePill: {
         maxWidth: "52%",
-        minHeight: 24,
+        minHeight: 22,
         justifyContent: "center",
-        paddingHorizontal: 8,
-        borderRadius: 12,
+        paddingHorizontal: 7,
+        borderRadius: 7,
         backgroundColor: control,
       },
       statePillText: {
@@ -813,10 +972,10 @@ function useStyles(theme: PluginTheme, compact: boolean) {
       fieldSection: { gap: 9, padding: 12 },
       choices: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
       choice: {
-        minHeight: 40,
+        minHeight: 32,
         justifyContent: "center",
-        paddingHorizontal: 11,
-        borderRadius: 20,
+        paddingHorizontal: 9,
+        borderRadius: 8,
         backgroundColor: control,
       },
       choiceActive: { backgroundColor: accentWash },
@@ -831,12 +990,12 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         fontWeight: "500",
       },
       button: {
-        minHeight: 40,
+        minHeight: 34,
         alignSelf: "flex-start",
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 12,
-        borderRadius: 10,
+        paddingHorizontal: 10,
+        borderRadius: 8,
       },
       ghostButton: { backgroundColor: "transparent" },
       secondaryButton: { backgroundColor: control },

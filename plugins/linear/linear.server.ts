@@ -59,10 +59,14 @@ export async function mutateIssue(
       const payload = await issue.update({ stateId: mutation.stateId });
       if (!payload.success)
         throw new Error("Linear did not update the issue state.");
-    } else {
+    } else if (mutation.type === "priority") {
       const payload = await issue.update({ priority: mutation.priority });
       if (!payload.success)
         throw new Error("Linear did not update the issue priority.");
+    } else {
+      const payload = await issue.update({ assigneeId: mutation.assigneeId });
+      if (!payload.success)
+        throw new Error("Linear did not update the issue assignee.");
     }
     return toDetail(await client.issue(issue.id));
   });
@@ -131,13 +135,29 @@ async function toDetail(issue: Issue): Promise<LinearIssue> {
     issue.comments({ first: 50 }),
   ]);
   if (!team) throw new Error("The Linear issue has no team.");
-  const states = await team.states({ first: 100 });
+  const [states, members] = await Promise.all([
+    team.states({ first: 100 }),
+    team.members({
+      first: 100,
+      includeArchived: false,
+      includeDisabled: false,
+    }),
+  ]);
   return {
     ...(await toSummary(issue)),
     description: issue.description ?? "",
     teamId: team.id,
     teamName: team.name,
-    assignee: assignee?.name ?? null,
+    assignee: assignee ? { id: assignee.id, name: assignee.name } : null,
+    assignees: members.nodes
+      .filter(
+        (member) =>
+          member.isAssignable &&
+          member.active &&
+          member.archivedAt === undefined,
+      )
+      .map((member) => ({ id: member.id, name: member.name }))
+      .sort((left, right) => left.name.localeCompare(right.name)),
     comments: await Promise.all(
       comments.nodes.map(async (comment) => ({
         id: comment.id,
