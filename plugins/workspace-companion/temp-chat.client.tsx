@@ -518,7 +518,6 @@ export function TempChatPanel({
 
       {!activeAgentId ? (
         <View style={styles.configuration}>
-          <Text style={styles.configurationLabel}>Chat configuration</Text>
           {tempAgents.isLoading ? (
             <View style={styles.configurationLoading}>
               <ActivityIndicator color={theme.colors.foregroundMuted} />
@@ -959,7 +958,9 @@ function SelectorButton({
         <Text numberOfLines={1} style={styles.selectorValue}>
           {value}
         </Text>
-        <Text style={styles.chevron}>⌄</Text>
+        <View style={styles.chevronBox}>
+          <View style={styles.chevron} />
+        </View>
       </View>
     </Pressable>
   );
@@ -1312,13 +1313,6 @@ function useTempChatStyles(theme: PluginTheme, compact: boolean) {
           gap: 6,
           paddingTop: 2,
         },
-        configurationLabel: {
-          color: theme.colors.foregroundMuted,
-          fontSize: 10,
-          fontWeight: "600",
-          letterSpacing: 0.6,
-          textTransform: "uppercase",
-        },
         configurationLoading: {
           minHeight: 34,
           flexDirection: "row",
@@ -1363,9 +1357,21 @@ function useTempChatStyles(theme: PluginTheme, compact: boolean) {
           fontWeight: "500",
           textAlign: "right",
         },
+        chevronBox: {
+          width: 16,
+          height: 16,
+          flexShrink: 0,
+          alignItems: "center",
+          justifyContent: "center",
+        },
         chevron: {
-          color: theme.colors.foregroundMuted,
-          fontSize: 13,
+          width: 6,
+          height: 6,
+          marginTop: -3,
+          borderRightWidth: 1.5,
+          borderBottomWidth: 1.5,
+          borderColor: theme.colors.foregroundMuted,
+          transform: [{ rotate: "45deg" }],
         },
         optionList: {
           maxHeight: 190,
