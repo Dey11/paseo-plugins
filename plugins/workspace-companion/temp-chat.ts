@@ -111,6 +111,13 @@ export interface TempChatContextApplication {
   appliedCapturedAt: string | null;
 }
 
+export interface TempChatKeyInput {
+  key: string;
+  platform: "ios" | "android" | "web";
+  shiftKey: boolean;
+  isComposing: boolean;
+}
+
 export function isTempChatAgent(agent: TempChatAgentLike): boolean {
   return agent.labels[TEMP_CHAT_LABEL] === TEMP_CHAT_LABEL_VALUE;
 }
@@ -285,6 +292,15 @@ export function shouldAttachTempChatContext(
     agentId === null ||
     context.appliedAgentId !== agentId ||
     context.appliedCapturedAt !== context.capturedAt
+  );
+}
+
+export function shouldSendTempChatKey(input: TempChatKeyInput): boolean {
+  return (
+    input.platform === "web" &&
+    input.key === "Enter" &&
+    !input.shiftKey &&
+    !input.isComposing
   );
 }
 

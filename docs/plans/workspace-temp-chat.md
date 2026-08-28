@@ -64,6 +64,8 @@ Context  Not captured                   Refresh context
 Message Temp chat…                                  [Send]
 ```
 
+The composer is one rounded surface with one focus ring. Its text area and Send button use matching inset radii; the raw input does not draw a second browser outline. Enter sends, while Shift+Enter inserts a newline on desktop/web.
+
 ### Active
 
 ```text
@@ -128,4 +130,4 @@ Its agent and transcript remain in Paseo's archive.
 
 ## Status
 
-Implemented and locally verified on 2026-08-28. Workspace Companion passes 27 focused tests, the complete 47-test plugin suite, formatting, and strict typechecking for all three plugins. The plugin reloads as `running` with a clean `Plugin ready` log and no daemon restart.
+Implemented and locally verified on 2026-08-28. Workspace Companion passes 29 focused tests, the complete 49-test plugin suite, formatting, and strict typechecking for all three plugins. The plugin reloads as `running` with a clean `Plugin ready` log and no daemon restart.

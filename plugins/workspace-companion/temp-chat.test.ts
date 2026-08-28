@@ -7,6 +7,7 @@ import {
   projectTempChatTimeline,
   selectionForModel,
   shouldAttachTempChatContext,
+  shouldSendTempChatKey,
   TEMP_CHAT_LABEL,
   TEMP_CHAT_LABEL_VALUE,
   type TempChatAgentLike,
@@ -213,6 +214,46 @@ describe("Temp Chat visible timeline", () => {
       { role: "assistant", text: "The flow is…", timestamp: "3" },
       { role: "error", text: "Provider stopped", timestamp: "4" },
     ]);
+  });
+});
+
+describe("Temp Chat composer", () => {
+  test("sends Enter on web while preserving Shift+Enter and composition", () => {
+    expect(
+      shouldSendTempChatKey({
+        key: "Enter",
+        platform: "web",
+        shiftKey: false,
+        isComposing: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSendTempChatKey({
+        key: "Enter",
+        platform: "web",
+        shiftKey: true,
+        isComposing: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSendTempChatKey({
+        key: "Enter",
+        platform: "web",
+        shiftKey: false,
+        isComposing: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("leaves native submission to TextInput submit behavior", () => {
+    expect(
+      shouldSendTempChatKey({
+        key: "Enter",
+        platform: "ios",
+        shiftKey: false,
+        isComposing: false,
+      }),
+    ).toBe(false);
   });
 });
 

@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputKeyPressEvent,
   View,
 } from "react-native";
 import {
@@ -29,6 +30,7 @@ import {
   projectTempChatTimeline,
   selectionForModel,
   shouldAttachTempChatContext,
+  shouldSendTempChatKey,
   TEMP_CHAT_LABEL,
   TEMP_CHAT_LABEL_VALUE,
   TEMP_CHAT_SYSTEM_PROMPT,
@@ -64,6 +66,7 @@ export function TempChatPanel({
   const styles = useTempChatStyles(theme, layout.compact);
   const messageListRef = useRef<ScrollView>(null);
   const [draft, setDraft] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [notice, setNotice] = useState("");
   const [noticeIsError, setNoticeIsError] = useState(false);
@@ -392,6 +395,20 @@ export function TempChatPanel({
     }
   }
 
+  function handleComposerKeyPress(event: TextInputKeyPressEvent) {
+    if (
+      !shouldSendTempChatKey({
+        key: event.nativeEvent.key,
+        platform: layout.platform,
+        shiftKey: keyboardEventFlag(event, "shiftKey"),
+        isComposing: keyboardEventFlag(event, "isComposing"),
+      })
+    )
+      return;
+    event.preventDefault();
+    if (canSend) void sendMessage();
+  }
+
   function clearNotice() {
     setNotice("");
     setNoticeIsError(false);
@@ -634,15 +651,25 @@ export function TempChatPanel({
         </Text>
       )}
 
-      <View style={styles.composer}>
+      <View
+        style={[styles.composer, composerFocused && styles.composerFocused]}
+      >
         <TextInput
           accessibilityLabel="Message Temp chat"
           editable={!working && busy !== "archive"}
           multiline
+          onBlur={() => setComposerFocused(false)}
           onChangeText={setDraft}
+          onFocus={() => setComposerFocused(true)}
+          onKeyPress={handleComposerKeyPress}
+          onSubmitEditing={() => {
+            if (layout.platform !== "web" && canSend) void sendMessage();
+          }}
           placeholder="Ask about this workspace…"
           placeholderTextColor={theme.colors.foregroundMuted}
+          returnKeyType="send"
           style={styles.composerInput}
+          submitBehavior={layout.platform === "web" ? "newline" : "submit"}
           value={draft}
         />
         <Pressable
@@ -1086,6 +1113,21 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
+function keyboardEventFlag(
+  event: TextInputKeyPressEvent,
+  name: "shiftKey" | "isComposing",
+): boolean {
+  const nativeEvent: unknown = event.nativeEvent;
+  if (typeof nativeEvent !== "object" || nativeEvent === null) return false;
+  if (name === "shiftKey" && "shiftKey" in nativeEvent) {
+    return nativeEvent.shiftKey === true;
+  }
+  if (name === "isComposing" && "isComposing" in nativeEvent) {
+    return nativeEvent.isComposing === true;
+  }
+  return false;
+}
+
 type TempChatStyles = ReturnType<typeof useTempChatStyles>;
 
 function useTempChatStyles(theme: PluginTheme, compact: boolean) {
@@ -1424,20 +1466,27 @@ function useTempChatStyles(theme: PluginTheme, compact: boolean) {
           flexDirection: "row",
           alignItems: "flex-end",
           gap: 8,
-          borderRadius: 12,
-          padding: 6,
+          borderWidth: 1,
+          borderColor: "transparent",
+          borderRadius: 13,
+          padding: 5,
           backgroundColor: blendHex(
             theme.colors.surface0,
             theme.colors.foreground,
             0.06,
           ),
         },
+        composerFocused: {
+          borderColor: theme.colors.accent,
+        },
         composerInput: {
           flex: 1,
-          minHeight: 36,
+          minHeight: 40,
           maxHeight: 120,
+          borderRadius: 8,
           paddingHorizontal: 8,
           paddingVertical: 8,
+          outlineWidth: 0,
           color: theme.colors.foreground,
           fontSize: 13,
           lineHeight: 19,
@@ -1445,7 +1494,7 @@ function useTempChatStyles(theme: PluginTheme, compact: boolean) {
         },
         sendButton: {
           minWidth: 58,
-          minHeight: 34,
+          minHeight: 40,
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 8,
