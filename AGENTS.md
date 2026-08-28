@@ -1,6 +1,6 @@
 # Paseo Productivity Plugins — AGENTS.md
 
-This repository contains trusted local Paseo plugins for workspace notes and review workflows, reusable prompts, Linear issue work, and development-port management. Each plugin is independently installable on a local or remote Paseo daemon, and the repository is maintained for source distribution to other Paseo users.
+This repository contains trusted local Paseo plugins for workspace notes and board workflows, Linear issue work, and development-port management. Each plugin is independently installable on a local or remote Paseo daemon, and the repository is maintained for source distribution to other Paseo users.
 
 ## Non-Negotiable Core Principles
 
@@ -19,8 +19,7 @@ User instructions take precedence. Preserve unrelated files and running processe
 
 ## Project Glossary
 
-- **Workspace Companion**: Notes, one unified workspace board, and transcript-aware manual QA plans.
-- **Prompt Library**: Globally stored reusable prompts exposed in the sidebar and composer attachment picker.
+- **Workspace Companion**: Workspace-tab notes and one unified workspace board.
 - **Linear**: Direct GraphQL integration for reading and explicitly confirmed issue mutations.
 - **Dev Ports**: Same-user workspace process discovery, safe termination, and Tailscale Serve controls.
 - **Board state**: `running` and `error` are derived from Paseo activity; `unreviewed`, `recheck`, and `approved` are plugin-owned review markers.

@@ -20,6 +20,10 @@ const issue: LinearIssue = {
   teamId: "t",
   teamName: "Engineering",
   assignee: null,
+  assignees: [
+    { id: "ada", name: "Ada Lovelace" },
+    { id: "grace", name: "Grace Hopper" },
+  ],
   comments: [],
   states: [{ id: "done", name: "Done", type: "completed", color: "#fff" }],
 };
@@ -52,6 +56,19 @@ describe("Linear integration", () => {
         body: "Please verify the retry path.",
       }),
     ).toContain("Please verify");
+    expect(
+      describeMutation(issue, {
+        type: "assignee",
+        issueId: "i",
+        assigneeId: "ada",
+      }),
+    ).toContain("Unassigned to Ada Lovelace");
+    expect(
+      describeMutation(
+        { ...issue, assignee: { id: "ada", name: "Ada Lovelace" } },
+        { type: "assignee", issueId: "i", assigneeId: null },
+      ),
+    ).toContain("Ada Lovelace to Unassigned");
   });
 
   test("surfaces Linear failures without exposing credentials", async () => {

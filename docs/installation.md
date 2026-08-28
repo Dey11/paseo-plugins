@@ -31,14 +31,14 @@ bun run typecheck
 Install a plugin with an absolute directory path:
 
 ```bash
-paseo plugin install "$PWD/plugins/prompt-library"
+paseo plugin install "$PWD/plugins/workspace-companion"
 paseo plugin ls
 ```
 
 The plugin should report `running`. If it does not, inspect its retained log:
 
 ```bash
-paseo plugin logs prompt-library
+paseo plugin logs workspace-companion
 ```
 
 ## Install on a remote host
@@ -69,24 +69,6 @@ paseo plugin reload linear
 ```
 
 The plugin reads the key when it handles a request. It does not return or log the key.
-
-## Configure Workspace Companion QA
-
-QA generation starts a temporary Paseo agent. By default it uses `codex/gpt-5.6-sol`, `auto-review`, and high thinking. If that provider or model is not available on your daemon, create:
-
-```text
-~/.config/paseo-plugins/workspace-companion.env
-```
-
-Set the provider and optional mode values:
-
-```bash
-PASEO_QA_PROVIDER=codex/gpt-5.5
-PASEO_QA_MODE=auto-review
-PASEO_QA_THINKING=high
-```
-
-Use provider, mode, and thinking IDs reported by your Paseo installation. Reload Workspace Companion after changing the file.
 
 ## Configure Dev Ports
 
@@ -130,7 +112,6 @@ Removing a plugin removes Paseo's installation record. It does not delete the cl
 | Plugin failed to load            | Run `bun run typecheck`, then inspect `paseo plugin logs <id>`.                                              |
 | Edited code is stale             | Run `paseo plugin reload <id>`.                                                                              |
 | Linear says it is not configured | Put the key in the daemon environment or the documented credential file, then reload.                        |
-| QA generation fails immediately  | Configure a provider, model, mode, and thinking option that exist on the daemon.                             |
 | Dev Ports shows no listeners     | Confirm the daemon is Linux, `ss` is installed, and the process directory belongs to a registered workspace. |
 | Tailscale access is denied       | Set the daemon user as the Tailscale operator once.                                                          |
 

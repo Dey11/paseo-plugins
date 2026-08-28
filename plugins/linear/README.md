@@ -1,14 +1,16 @@
 # Linear
 
-The Linear plugin adds an agent-context panel for:
+The Linear plugin adds a workspace panel for:
 
-- Searching issues by text
-- Reading issue descriptions and comments
-- Opening the canonical issue in a browser
-- Changing status or priority
+- Searching issues by text with Previous/Next pagination
+- Reading Markdown-formatted issue descriptions and comments
+- Opening the canonical issue in the operating system browser
+- Changing status, priority, or assignee
 - Adding comments
 
-Every write creates a confirmation card. Linear receives nothing until you press **Confirm update**.
+Every write creates a confirmation card. Linear receives nothing until you press **Confirm update**. The assignee picker lists active, assignable members of the issue's team and supports returning the issue to **Unassigned**.
+
+Descriptions and recent comments render headings, bold and italic text, links, lists, task markers, blockquotes, inline code, and fenced code blocks. Links use the operating system browser.
 
 ## Install
 
@@ -21,7 +23,7 @@ paseo plugin install "$PWD/plugins/linear"
 paseo plugin ls
 ```
 
-Open **Linear** from an agent tab or the Command Center.
+Open **Linear** from the workspace **+** menu or the Command Center.
 
 ## Configure the API key
 

@@ -8,8 +8,7 @@ Review the plugin directory before installing it. On shared daemons, treat plugi
 
 ## Plugin permissions
 
-- `workspace-companion` reads workspace Git metadata and the focused agent's projected transcript when you manually generate a QA plan. It stores notes, board state, and QA plans under Paseo's plugin-data directory.
-- `prompt-library` reads and writes its own prompt store under Paseo's plugin-data directory. Attached prompts become part of the message sent to the selected agent.
+- `workspace-companion` stores notes and board state under Paseo's plugin-data directory. Refining a note sends its current contents to the selected workspace agent.
 - `linear` sends requests to Linear with the configured personal API key. Writes require an explicit confirmation in the panel.
 - `dev-ports` reads Linux socket and `/proc` metadata, can send `SIGTERM` to a verified same-user workspace process, and can create or remove Tailscale Serve mappings that it owns.
 
@@ -17,7 +16,7 @@ None of the plugins should log credentials or stored content.
 
 ## Credentials
 
-Never commit a Linear key or a QA-provider secret. Keep credentials in the daemon environment or the documented user-only configuration files. Restrict credential files to the daemon user:
+Never commit a Linear key. Keep it in the daemon environment or the documented user-only configuration file. Restrict credential files to the daemon user:
 
 ```bash
 chmod 600 ~/.config/paseo-plugins/*.env

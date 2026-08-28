@@ -1,9 +1,9 @@
 import type {
-  PluginAgentPanelProps,
   PluginSurfaceProps,
   PluginTheme,
+  PluginWorkspacePanelProps,
 } from "@getpaseo/plugin";
-import { useAgent, usePaseo, useRpc } from "@getpaseo/plugin";
+import { usePaseo, useRpc } from "@getpaseo/plugin";
 import type { PaseoAgent, PaseoWorkspace } from "@getpaseo/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
@@ -19,13 +19,9 @@ import {
   View,
 } from "react-native";
 import {
-  GenerateReviewPlanRpc,
   GetBoardWorkflowRpc,
   GetNoteRpc,
-  GetReviewPlanRpc,
   PlaceBoardCardRpc,
-  type ReviewDocument,
-  type ReviewPlan,
   type ReviewState,
   SaveNoteRpc,
 } from "./contracts";
@@ -40,6 +36,7 @@ import {
   type BoardState,
   type BoardWorkflow,
 } from "./workflow";
+import { toggleMarkdownTask } from "./markdown";
 import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
 
 const REVIEW_STATES: readonly ReviewState[] = [
@@ -51,14 +48,12 @@ const BOARD_QUERY_KEY = ["agent-board"] as const;
 
 export function NotesPanel({
   workspaceId,
-  agentId,
   theme,
   layout,
-}: PluginAgentPanelProps) {
+}: PluginWorkspacePanelProps) {
   const getNote = useRpc(GetNoteRpc);
   const saveNote = useRpc(SaveNoteRpc);
   const paseo = usePaseo();
-  const agentTitle = useAgent(agentId, (agent) => agent.title) ?? "this agent";
   const [mode, setMode] = useState<"write" | "preview">("write");
   const [markdown, setMarkdown] = useState("");
   const [savedMarkdown, setSavedMarkdown] = useState("");
@@ -71,6 +66,21 @@ export function NotesPanel({
     queryKey: ["workspace-note", workspaceId],
     queryFn: () => getNote({ workspaceId }),
   });
+  const workspaceAgent = useQuery({
+    queryKey: ["workspace-note-agent", workspaceId],
+    queryFn: async () => {
+      const agents = await paseo.agents.list();
+      return (
+        agents.entries
+          .map((entry: { agent: PaseoAgent }) => entry.agent)
+          .filter((agent: PaseoAgent) => agent.workspaceId === workspaceId)
+          .sort((left: PaseoAgent, right: PaseoAgent) =>
+            right.updatedAt.localeCompare(left.updatedAt),
+          )[0] ?? null
+      );
+    },
+    staleTime: 30_000,
+  });
   useEffect(() => {
     if (!note.data) return;
     setMarkdown(note.data.markdown);
@@ -79,12 +89,12 @@ export function NotesPanel({
   }, [note.data]);
   const dirty = markdown !== savedMarkdown;
 
-  async function save() {
+  async function persistNote(nextMarkdown: string) {
     setBusy("save");
     setNotice("");
     setNoticeIsError(false);
     try {
-      const saved = await saveNote({ workspaceId, markdown });
+      const saved = await saveNote({ workspaceId, markdown: nextMarkdown });
       setSavedMarkdown(saved.markdown);
       setUpdatedAt(saved.updatedAt);
     } catch (error) {
@@ -95,13 +105,30 @@ export function NotesPanel({
     }
   }
 
+  async function save() {
+    await persistNote(markdown);
+  }
+
+  async function toggleChecklist(lineIndex: number) {
+    if (busy !== null || note.isError) return;
+    const nextMarkdown = toggleMarkdownTask(markdown, lineIndex);
+    if (nextMarkdown === markdown) return;
+    setMarkdown(nextMarkdown);
+    await persistNote(nextMarkdown);
+  }
+
   async function askAgent() {
     setBusy("refine");
     setNotice("");
     setNoticeIsError(false);
     try {
+      const agent = workspaceAgent.data;
+      if (!agent)
+        throw new Error(
+          "This workspace does not have an agent to refine the note.",
+        );
       const result = await paseo.agents
-        .ref(agentId)
+        .ref(agent.id)
         .run(
           `Rewrite the workspace note below as concise Markdown. Preserve useful facts, decisions, TODOs, and review instructions. Return Markdown only; do not use a wrapping code fence.\n\n${markdown}`,
           { timeoutMs: 180_000 },
@@ -129,7 +156,7 @@ export function NotesPanel({
     >
       <Header
         title="Notes"
-        subtitle={`Workspace context for ${agentTitle}`}
+        subtitle="Private Markdown context for this workspace"
         styles={styles}
       />
       <Segments
@@ -162,7 +189,12 @@ export function NotesPanel({
               style={styles.noteEditor}
             />
           ) : (
-            <MarkdownPreview markdown={markdown} styles={styles} />
+            <MarkdownPreview
+              markdown={markdown}
+              checklistDisabled={busy !== null || note.isError}
+              onToggleChecklist={toggleChecklist}
+              styles={styles}
+            />
           )}
         </View>
       )}
@@ -181,10 +213,21 @@ export function NotesPanel({
         </Text>
         <View style={styles.footerActions}>
           <Button
-            label={busy === "refine" ? "Refining..." : "Refine with agent"}
+            label={
+              busy === "refine"
+                ? "Refining..."
+                : workspaceAgent.data
+                  ? "Refine with agent"
+                  : "No agent available"
+            }
             onPress={askAgent}
             variant="ghost"
-            disabled={busy !== null || note.isError}
+            disabled={
+              busy !== null ||
+              note.isError ||
+              workspaceAgent.isLoading ||
+              !workspaceAgent.data
+            }
             styles={styles}
           />
           <Button
@@ -196,107 +239,6 @@ export function NotesPanel({
           />
         </View>
       </View>
-    </ScrollView>
-  );
-}
-
-export function ReviewPanel({
-  workspaceId,
-  agentId,
-  theme,
-  layout,
-}: PluginAgentPanelProps) {
-  const getPlan = useRpc(GetReviewPlanRpc);
-  const generatePlan = useRpc(GenerateReviewPlanRpc);
-  const queryClient = useQueryClient();
-  const [starting, setStarting] = useState(false);
-  const [generationError, setGenerationError] = useState("");
-  const styles = useStyles(theme, layout.compact);
-  const review = useQuery<ReviewDocument>({
-    queryKey: ["review-plan", workspaceId],
-    queryFn: () => getPlan({ workspaceId }),
-    refetchInterval: (query) =>
-      query.state.data?.status === "generating" ? 2_000 : false,
-  });
-  const document = review.data;
-  const plan = document?.plan ?? null;
-  const generating = starting || document?.status === "generating";
-
-  async function generate() {
-    setStarting(true);
-    setGenerationError("");
-    try {
-      const next = await generatePlan({ workspaceId, agentId });
-      queryClient.setQueryData(["review-plan", workspaceId], next);
-      void review.refetch();
-    } catch (error) {
-      setGenerationError(message(error));
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.panelContent}
-    >
-      <View style={styles.panelHeaderRow}>
-        <Header
-          title="QA review"
-          subtitle="Manual checks inferred from the work and its conversation"
-          styles={styles}
-        />
-        {plan ? (
-          <Button
-            label="Regenerate"
-            onPress={generate}
-            variant="primary"
-            disabled={generating}
-            styles={styles}
-          />
-        ) : null}
-      </View>
-      {generating ? <GeneratingReview styles={styles} /> : null}
-      {generationError ? (
-        <PanelError
-          title="Couldn’t prepare the QA plan"
-          message={generationError}
-          onRetry={generate}
-          styles={styles}
-        />
-      ) : review.isError ? (
-        <PanelError
-          title="Couldn’t prepare the QA plan"
-          message={message(review.error)}
-          onRetry={generate}
-          styles={styles}
-        />
-      ) : document?.status === "error" && !generating ? (
-        <PanelError
-          title="Couldn’t prepare the QA plan"
-          message={document.error ?? "Unable to generate a QA plan."}
-          onRetry={generate}
-          styles={styles}
-        />
-      ) : null}
-      {plan ? (
-        <QaPlan plan={plan} styles={styles} />
-      ) : generating ? null : (
-        <View style={styles.reviewEmpty}>
-          <Text style={styles.reviewEmptyTitle}>No QA plan yet</Text>
-          <Text style={styles.reviewEmptyBody}>
-            Generate one after the agent has made changes worth testing.
-          </Text>
-          <Button
-            label="Generate QA plan"
-            onPress={generate}
-            variant="primary"
-            disabled={generating}
-            styles={styles}
-          />
-        </View>
-      )}
     </ScrollView>
   );
 }
@@ -1015,9 +957,13 @@ function openWorkspace(
 
 function MarkdownPreview({
   markdown,
+  checklistDisabled,
+  onToggleChecklist,
   styles,
 }: {
   markdown: string;
+  checklistDisabled: boolean;
+  onToggleChecklist: (lineIndex: number) => Promise<void>;
   styles: Styles;
 }) {
   if (!markdown.trim())
@@ -1064,13 +1010,32 @@ function MarkdownPreview({
       );
       continue;
     }
-    const checkbox = line.match(/^[-*] \[([ xX])\] (.*)$/);
+    const checkbox = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/);
     if (checkbox) {
+      const checked = checkbox[1]?.toLowerCase() === "x";
+      const label = checkbox[2] ?? "";
       blocks.push(
-        <Text key={index} style={styles.body}>
-          {checkbox[1]?.toLowerCase() === "x" ? "☑" : "☐"}{" "}
-          {renderInline(checkbox[2] ?? "", styles)}
-        </Text>,
+        <View key={index} style={styles.taskRow}>
+          <Pressable
+            accessibilityLabel={`${checked ? "Mark incomplete" : "Mark complete"}: ${label}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked, disabled: checklistDisabled }}
+            disabled={checklistDisabled}
+            onPress={() => onToggleChecklist(index)}
+            style={({ pressed }) => [
+              styles.taskToggle,
+              pressed && styles.taskTogglePressed,
+              checklistDisabled && styles.taskToggleDisabled,
+            ]}
+          >
+            <View style={[styles.taskBox, checked && styles.taskBoxChecked]}>
+              {checked ? <Text style={styles.taskCheckmark}>✓</Text> : null}
+            </View>
+          </Pressable>
+          <Text style={[styles.body, checked && styles.taskTextChecked]}>
+            {renderInline(label, styles)}
+          </Text>
+        </View>,
       );
       continue;
     }
@@ -1165,21 +1130,6 @@ function Header({
   );
 }
 
-function GeneratingReview({ styles }: { styles: Styles }) {
-  return (
-    <View accessibilityLiveRegion="polite" style={styles.reviewProgress}>
-      <ActivityIndicator size="small" color={styles.loadingIndicator.color} />
-      <View style={styles.reviewProgressCopy}>
-        <Text style={styles.reviewProgressTitle}>Preparing your QA plan</Text>
-        <Text style={styles.muted}>
-          Reading the agent transcript and current changes. This can take a few
-          minutes.
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 function PanelError({
   title,
   message,
@@ -1192,9 +1142,9 @@ function PanelError({
   styles: Styles;
 }) {
   return (
-    <View style={styles.reviewError}>
-      <View style={styles.reviewErrorCopy}>
-        <Text style={styles.reviewErrorTitle}>{title}</Text>
+    <View style={styles.panelError}>
+      <View style={styles.panelErrorCopy}>
+        <Text style={styles.panelErrorTitle}>{title}</Text>
         <Text style={styles.muted}>{message}</Text>
       </View>
       <Button
@@ -1203,107 +1153,6 @@ function PanelError({
         variant="secondary"
         styles={styles}
       />
-    </View>
-  );
-}
-
-function QaPlan({ plan, styles }: { plan: ReviewPlan; styles: Styles }) {
-  const metrics = [
-    `${plan.transcriptMessageCount} transcript ${plan.transcriptMessageCount === 1 ? "message" : "messages"}`,
-    `${plan.files.length} changed ${plan.files.length === 1 ? "file" : "files"}`,
-    `+${plan.additions} −${plan.deletions}`,
-  ];
-  return (
-    <View style={styles.qaPlan}>
-      <View style={styles.reviewIntro}>
-        <Text style={styles.reviewSummary}>{plan.summary}</Text>
-        <View style={styles.reviewMetaRow}>
-          {metrics.map((metric) => (
-            <Text key={metric} style={styles.reviewMeta}>
-              {metric}
-            </Text>
-          ))}
-          <Text style={styles.reviewMeta}>
-            {generatedLabel(plan.generatedAt)}
-          </Text>
-        </View>
-      </View>
-
-      <ReviewSection title="What changed" styles={styles}>
-        <View style={styles.reviewGroup}>
-          {plan.changes.map((change, index) => (
-            <View
-              key={`${index}-${change}`}
-              style={[styles.changeRow, index > 0 && styles.reviewGroupDivider]}
-            >
-              <View style={styles.bullet} />
-              <Text style={styles.changeText}>{change}</Text>
-            </View>
-          ))}
-        </View>
-      </ReviewSection>
-
-      <ReviewSection title="Test these flows" styles={styles}>
-        <View style={styles.reviewGroup}>
-          {plan.flows.map((flow, index) => (
-            <View
-              key={flow.id}
-              style={[styles.flowRow, index > 0 && styles.reviewGroupDivider]}
-            >
-              <View style={styles.flowHeader}>
-                <View style={styles.flowTitleGroup}>
-                  <Text style={styles.flowSurface}>{flow.surface}</Text>
-                  <Text style={styles.flowTitle}>{flow.title}</Text>
-                </View>
-                {flow.priority === "high" ? (
-                  <Text style={styles.highPriority}>High priority</Text>
-                ) : null}
-              </View>
-              <Text style={styles.flowWhy}>{flow.why}</Text>
-              <View style={styles.flowSteps}>
-                {flow.steps.map((step, stepIndex) => (
-                  <View key={`${flow.id}-${stepIndex}`} style={styles.stepRow}>
-                    <Text style={styles.stepNumber}>{stepIndex + 1}</Text>
-                    <Text style={styles.stepText}>{step}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
-      </ReviewSection>
-
-      {plan.watchFor.length > 0 ? (
-        <ReviewSection title="Watch for" styles={styles}>
-          <View style={styles.reviewGroup}>
-            {plan.watchFor.map((item, index) => (
-              <View
-                key={`${index}-${item}`}
-                style={[
-                  styles.changeRow,
-                  index > 0 && styles.reviewGroupDivider,
-                ]}
-              >
-                <View style={styles.watchDot} />
-                <Text style={styles.changeText}>{item}</Text>
-              </View>
-            ))}
-          </View>
-        </ReviewSection>
-      ) : null}
-    </View>
-  );
-}
-
-function ReviewSection({
-  title,
-  styles,
-  children,
-}: React.PropsWithChildren<{ title: string; styles: Styles }>) {
-  return (
-    <View style={styles.reviewSection}>
-      <Text style={styles.reviewSectionTitle}>{title}</Text>
-      {children}
     </View>
   );
 }
@@ -1464,15 +1313,6 @@ function savedLabel(updatedAt: string | null): string {
   })}`;
 }
 
-function generatedLabel(generatedAt: string): string {
-  return `Generated ${new Date(generatedAt).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
-}
-
 type Styles = ReturnType<typeof useStyles>;
 function useStyles(theme: PluginTheme, compact: boolean) {
   return useMemo(
@@ -1509,12 +1349,6 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         errorText: {
           color: theme.colors.statusDanger,
           fontSize: 13,
-        },
-        panelHeaderRow: {
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 16,
         },
         noteSurface: {
           minHeight: compact ? 320 : 400,
@@ -1622,26 +1456,43 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           gap: 5,
           padding: compact ? 14 : 18,
         },
-        reviewProgress: {
+        taskRow: {
+          minHeight: 40,
           flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 12,
-          padding: 14,
-          borderRadius: 12,
-          backgroundColor: blendHex(
-            theme.colors.surface0,
-            theme.colors.accent,
-            0.09,
-          ),
+          alignItems: "center",
         },
-        loadingIndicator: { color: theme.colors.accent },
-        reviewProgressCopy: { flex: 1, gap: 3 },
-        reviewProgressTitle: {
-          color: theme.colors.foreground,
-          fontSize: 13,
-          fontWeight: "600",
+        taskToggle: {
+          width: 40,
+          minHeight: 40,
+          alignItems: "center",
+          justifyContent: "center",
         },
-        reviewError: {
+        taskTogglePressed: { opacity: 0.7 },
+        taskToggleDisabled: { opacity: 0.5 },
+        taskBox: {
+          width: 18,
+          height: 18,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.colors.foregroundMuted,
+          borderRadius: 5,
+        },
+        taskBoxChecked: {
+          borderColor: theme.colors.accent,
+          backgroundColor: theme.colors.accent,
+        },
+        taskCheckmark: {
+          color: theme.colors.accentForeground,
+          fontSize: 12,
+          lineHeight: 14,
+          fontWeight: "700",
+        },
+        taskTextChecked: {
+          color: theme.colors.foregroundMuted,
+          textDecorationLine: "line-through",
+        },
+        panelError: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1654,154 +1505,11 @@ function useStyles(theme: PluginTheme, compact: boolean) {
             0.08,
           ),
         },
-        reviewErrorCopy: { flex: 1, gap: 3 },
-        reviewErrorTitle: {
+        panelErrorCopy: { flex: 1, gap: 3 },
+        panelErrorTitle: {
           color: theme.colors.statusDanger,
           fontSize: 13,
           fontWeight: "600",
-        },
-        reviewEmpty: {
-          minHeight: 300,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          paddingHorizontal: 24,
-        },
-        reviewEmptyTitle: {
-          color: theme.colors.foreground,
-          fontSize: 15,
-          fontWeight: "600",
-        },
-        reviewEmptyBody: {
-          maxWidth: 360,
-          color: theme.colors.foregroundMuted,
-          fontSize: 13,
-          lineHeight: 19,
-          textAlign: "center",
-          marginBottom: 4,
-        },
-        qaPlan: { gap: 24 },
-        reviewIntro: { gap: 9 },
-        reviewSummary: {
-          color: theme.colors.foreground,
-          fontSize: 15,
-          lineHeight: 22,
-          fontWeight: "500",
-        },
-        reviewMetaRow: {
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 10,
-        },
-        reviewMeta: {
-          color: theme.colors.foregroundMuted,
-          fontSize: 11,
-          fontVariant: ["tabular-nums"],
-        },
-        reviewSection: { gap: 9 },
-        reviewSectionTitle: {
-          color: theme.colors.foregroundMuted,
-          fontSize: 12,
-          fontWeight: "600",
-          textTransform: "uppercase",
-          letterSpacing: 0.45,
-        },
-        reviewGroup: {
-          overflow: "hidden",
-          borderRadius: 14,
-          backgroundColor: blendHex(
-            theme.colors.surface0,
-            theme.colors.foreground,
-            0.05,
-          ),
-        },
-        reviewGroupDivider: {
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: blendHex(
-            theme.colors.surface0,
-            theme.colors.foreground,
-            0.12,
-          ),
-        },
-        changeRow: {
-          minHeight: 44,
-          flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 10,
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-        },
-        bullet: {
-          width: 5,
-          height: 5,
-          marginTop: 7,
-          borderRadius: 3,
-          backgroundColor: theme.colors.accent,
-        },
-        watchDot: {
-          width: 5,
-          height: 5,
-          marginTop: 7,
-          borderRadius: 3,
-          backgroundColor: theme.colors.foregroundMuted,
-        },
-        changeText: {
-          flex: 1,
-          color: theme.colors.foreground,
-          fontSize: 13,
-          lineHeight: 19,
-        },
-        flowRow: { gap: 10, padding: compact ? 14 : 16 },
-        flowHeader: {
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 12,
-        },
-        flowTitleGroup: { flex: 1, gap: 3 },
-        flowSurface: {
-          color: theme.colors.foregroundMuted,
-          fontSize: 11,
-          fontWeight: "600",
-          textTransform: "uppercase",
-          letterSpacing: 0.35,
-        },
-        flowTitle: {
-          color: theme.colors.foreground,
-          fontSize: 14,
-          lineHeight: 19,
-          fontWeight: "600",
-        },
-        highPriority: {
-          color: theme.colors.statusDanger,
-          fontSize: 11,
-          fontWeight: "600",
-        },
-        flowWhy: {
-          color: theme.colors.foregroundMuted,
-          fontSize: 13,
-          lineHeight: 19,
-        },
-        flowSteps: { gap: 7, paddingTop: 2 },
-        stepRow: {
-          flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 9,
-        },
-        stepNumber: {
-          width: 17,
-          color: theme.colors.foregroundMuted,
-          fontSize: 12,
-          lineHeight: 19,
-          textAlign: "right",
-          fontVariant: ["tabular-nums"],
-        },
-        stepText: {
-          flex: 1,
-          color: theme.colors.foreground,
-          fontSize: 13,
-          lineHeight: 19,
         },
         heading1: {
           color: theme.colors.foreground,

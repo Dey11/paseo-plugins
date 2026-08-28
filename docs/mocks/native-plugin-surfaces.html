@@ -205,6 +205,7 @@
         margin-bottom: 14px;
       }
       .linear-search,
+      .assignee-search,
       .linear-comment {
         width: 100%;
         min-height: 42px;
@@ -247,9 +248,10 @@
       }
       .issue-state,
       .choice {
-        padding: 5px 9px;
+        min-height: 30px;
+        padding: 4px 8px;
         border: 0;
-        border-radius: 999px;
+        border-radius: 8px;
         color: var(--muted);
         background: var(--control);
         font-size: 12px;
@@ -275,6 +277,24 @@
         margin-top: 12px;
         color: var(--text);
       }
+      .markdown-copy {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+        color: var(--text);
+      }
+      .markdown-copy code {
+        padding: 2px 5px;
+        border-radius: 5px;
+        color: var(--accent);
+        background: var(--control);
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+      }
+      .markdown-copy ul {
+        margin: 0;
+        padding-left: 20px;
+      }
       .section-label {
         margin-top: 18px;
         color: var(--muted);
@@ -290,6 +310,28 @@
       .choice-active {
         color: var(--accent);
         background: color-mix(in srgb, var(--accent) 14%, var(--raised));
+      }
+      .pager {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .pager .page-number {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .pager .secondary:last-child {
+        justify-self: end;
+      }
+      .assignee-search {
+        min-height: 34px;
+        margin-top: 8px;
+        padding: 6px 9px;
+        border-radius: 9px;
+        font-size: 12px;
       }
       .linear-comment {
         min-height: 86px;
@@ -372,6 +414,47 @@
           SFMono-Regular,
           Menlo,
           monospace;
+      }
+      .note-preview {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+      }
+      .note-preview h2 {
+        margin: 6px 0 2px;
+        font-size: 19px;
+      }
+      .task-row {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        align-items: center;
+        min-height: 40px;
+      }
+      .task-checkbox {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border: 0;
+        color: var(--text);
+        background: transparent;
+      }
+      .task-checkbox::before {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        content: "";
+      }
+      .task-checkbox.checked::before {
+        border-color: var(--accent);
+        color: #102019;
+        background: var(--accent);
+        content: "✓";
+        font-size: 12px;
+        font-weight: 700;
       }
       .panel-footer {
         display: flex;
@@ -605,18 +688,27 @@
               </div>
             </article>
           </div>
+          <div class="pager" aria-label="Issue pages">
+            <button class="secondary" disabled>Previous</button>
+            <span class="page-number">Page 1</span>
+            <button class="secondary">Next</button>
+          </div>
         </div>
         <div class="linear-panel">
           <div class="detail-actions">
-            <button class="ghost">Back</button>
+            <button class="secondary">← Back</button>
             <button class="secondary">Open in Linear ↗</button>
           </div>
           <span class="issue-id">SYS-218</span>
           <h2 class="detail-title">Make plugin panels match Paseo</h2>
           <p>System · Unassigned</p>
-          <p class="description">
-            Bring the Linear panel in line with Paseo's quiet grouped layout.
-          </p>
+          <div class="markdown-copy">
+            <p><strong>Deliverable:</strong> Match Paseo's grouped layout.</p>
+            <ul>
+              <li>Keep controls compact</li>
+              <li>Verify the <code>workspace</code> tab flow</li>
+            </ul>
+          </div>
           <div class="field-group">
             <div class="field-section">
               <div class="section-label" style="margin-top: 0">Status</div>
@@ -632,6 +724,15 @@
                 <button class="choice">Urgent</button>
                 <button class="choice choice-active">High</button>
                 <button class="choice">Normal</button>
+              </div>
+            </div>
+            <div class="field-section">
+              <div class="section-label" style="margin-top: 0">Assignee</div>
+              <input class="assignee-search" placeholder="Find a teammate" />
+              <div class="choice-row">
+                <button class="choice">Unassigned</button>
+                <button class="choice choice-active">Ada Lovelace</button>
+                <button class="choice">Grace Hopper</button>
               </div>
             </div>
           </div>
@@ -658,110 +759,39 @@
           <div class="panel-heading">
             <div>
               <h1>Notes</h1>
-              <p>Workspace context shared with this agent</p>
+              <p>Private Markdown context for this workspace</p>
             </div>
           </div>
           <div class="segments" aria-label="Note view">
-            <button class="segment segment-active">Write</button>
-            <button class="segment">Preview</button>
+            <button class="segment">Write</button>
+            <button class="segment segment-active">Preview</button>
           </div>
-          <div class="note-editor">
-            <textarea aria-label="Workspace note">
-## Decisions
-
-- Keep the board limited to five states
-- QA the drag interaction on desktop
-
-## Follow-ups
-
-- Verify compact layout on iPhone
-- Recheck the dev-server browser handoff</textarea>
+          <div class="note-editor note-preview">
+            <h2>Decisions</h2>
+            <div class="task-row">
+              <button
+                class="task-checkbox checked"
+                aria-label="Completed"
+              ></button>
+              <span>Keep the board limited to five states</span>
+            </div>
+            <div class="task-row">
+              <button class="task-checkbox" aria-label="Not completed"></button>
+              <span>Test the drag interaction on desktop</span>
+            </div>
+            <h2>Follow-ups</h2>
+            <div class="task-row">
+              <button class="task-checkbox" aria-label="Not completed"></button>
+              <span>Verify compact layout on iPhone</span>
+            </div>
           </div>
           <div class="panel-footer">
-            <span class="save-state">Unsaved changes</span>
+            <span class="save-state">Saved just now</span>
             <div class="footer-actions">
               <button class="ghost">Refine with agent</button>
               <button class="primary">Save</button>
             </div>
           </div>
-        </div>
-        <div class="native-panel">
-          <div class="panel-heading">
-            <div>
-              <h1>QA review</h1>
-              <p>Manual checks inferred from the work and its conversation</p>
-            </div>
-            <button class="primary">Regenerate</button>
-          </div>
-          <div class="review-source">
-            <span>18 transcript messages</span>
-            <span>7 changed files</span>
-            <span>+184 −96</span>
-            <span>Generated 4:32 AM</span>
-          </div>
-          <section class="review-section">
-            <div class="review-label">What changed</div>
-            <div class="change-summary">
-              <p>
-                The workspace companion panels now use Paseo's quieter grouped
-                layout.
-              </p>
-              <p>
-                Review planning now turns the agent conversation and current
-                diff into manual QA flows.
-              </p>
-            </div>
-          </section>
-          <section class="review-section">
-            <div class="review-label">Test these flows</div>
-            <div class="flow-list">
-              <article class="flow-row">
-                <div class="flow-title">
-                  <h2>Generate a QA plan from an agent</h2>
-                  <span class="priority priority-high">High</span>
-                </div>
-                <p class="flow-reason">
-                  The review action now reads transcript context and
-                  working-tree changes.
-                </p>
-                <ol class="steps">
-                  <li>Focus an agent with completed workspace changes.</li>
-                  <li>Open QA review and choose Regenerate.</li>
-                  <li>
-                    Confirm the plan names the changed screens and gives
-                    executable checks.
-                  </li>
-                </ol>
-              </article>
-              <article class="flow-row">
-                <div class="flow-title">
-                  <h2>Edit and preview a workspace note</h2>
-                  <span class="priority">Normal</span>
-                </div>
-                <p class="flow-reason">
-                  The note editor, preview, dirty state, and save controls were
-                  redesigned.
-                </p>
-                <ol class="steps">
-                  <li>Edit Markdown and verify Unsaved changes appears.</li>
-                  <li>Switch between Write and Preview without losing text.</li>
-                  <li>
-                    Save, reopen the panel, and confirm the note persists.
-                  </li>
-                </ol>
-              </article>
-            </div>
-          </section>
-          <section class="review-section">
-            <div class="review-label">Watch for</div>
-            <ul class="watch-list">
-              <li>
-                Plans that describe implementation details instead of
-                user-visible checks
-              </li>
-              <li>Missing empty and error states on compact clients</li>
-            </ul>
-          </section>
         </div>
       </section>
     </main>

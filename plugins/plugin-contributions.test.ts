@@ -2,8 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 const contributionFiles = [
   "plugins/workspace-companion/index.ts",
-  "plugins/prompt-library/index.ts",
-  "plugins/prompt-library/contracts.ts",
   "plugins/linear/index.ts",
   "plugins/dev-ports/index.ts",
 ];
@@ -12,7 +10,6 @@ const documentedLucideIcons = new Set([
   "CircleDot",
   "ListPlus",
   "PanelsTopLeft",
-  "Scan",
 ]);
 
 describe("Paseo client contributions", () => {
@@ -46,6 +43,22 @@ describe("Paseo client contributions", () => {
 
     expect(limits.length).toBeGreaterThan(0);
     for (const limit of limits) expect(limit).toBeLessThanOrEqual(200);
+  });
+
+  test("exposes notes and Linear in the workspace tab launcher", async () => {
+    const expectations = [
+      ["plugins/workspace-companion/index.ts", "notes"],
+      ["plugins/linear/index.ts", "linear"],
+    ] as const;
+
+    for (const [file, panelId] of expectations) {
+      const source = await Bun.file(file).text();
+      expect(source).toMatch(
+        new RegExp(
+          `addWorkspacePanel\\(\\{[\\s\\S]*?id: "${panelId}"[\\s\\S]*?context: "workspace"[\\s\\S]*?\\}\\)`,
+        ),
+      );
+    }
   });
 
   test("does not execute server-only imports while loading a client entry", async () => {

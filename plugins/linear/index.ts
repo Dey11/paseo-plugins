@@ -24,14 +24,14 @@ export default function contribute(plugin: PluginContext) {
     id: "linear",
     title: "Linear",
     icon: "CircleDot",
-    context: "agent",
+    context: "workspace",
     Component: LinearPanel,
   });
   plugin.addCommandCenterItem({
     id: "open-linear",
     title: "Open Linear",
     icon: "CircleDot",
-    context: "agent",
+    context: "workspace",
     onSelect: ({ openPanel }) => openPanel("linear"),
   });
   return () => {};

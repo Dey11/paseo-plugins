@@ -34,7 +34,7 @@ For UI changes, test a wide desktop view and a compact view. Use Paseo theme col
 - Keep Node APIs, credentials, shell commands, Git access, and filesystem access in `*.server.ts` files.
 - Validate RPC inputs and outputs with Zod.
 - Use Paseo's SDK for normal workspace and agent operations.
-- Never log credentials, transcript contents, or private prompt-library entries.
+- Never log credentials, transcript contents, or private workspace notes.
 
 Paseo plugin changes require a source reload:
 
