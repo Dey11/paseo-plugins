@@ -45,9 +45,10 @@ describe("Paseo client contributions", () => {
     for (const limit of limits) expect(limit).toBeLessThanOrEqual(200);
   });
 
-  test("exposes notes and Linear in the workspace tab launcher", async () => {
+  test("exposes workspace tools in the workspace tab launcher", async () => {
     const expectations = [
       ["plugins/workspace-companion/index.ts", "notes"],
+      ["plugins/workspace-companion/index.ts", "temp-chat"],
       ["plugins/linear/index.ts", "linear"],
     ] as const;
 

@@ -11,9 +11,10 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 ## Scope
 
 1. Workspace-scoped Markdown notes with write and preview modes. Preview task markers are interactive and save the current note immediately. The current agent can refine a replacement note that the user reviews before saving.
-2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
-3. A workspace-context Linear GraphQL panel with cursor-backed page navigation, Markdown-rendered issue descriptions and comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
-4. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
+2. A workspace-specific Temp Chat backed by its own labeled Paseo agent, a bounded manually refreshed context snapshot, selectable launch configuration, and recoverable agent archiving.
+3. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
+4. A workspace-context Linear GraphQL panel with cursor-backed page navigation, Markdown-rendered issue descriptions and comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
+5. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
 
 ## Non-goals
 
@@ -24,6 +25,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 - Public exposure through Tailscale Funnel.
 - Linear project administration, bulk edits, or automation.
 - Cross-device cloud synchronization beyond the shared Paseo daemon.
+- A hidden or ephemeral chat runtime; Temp Chat uses a normal dedicated Paseo agent.
 
 ## Constraints
 
@@ -40,6 +42,8 @@ Each plugin is a separate deep module with one responsibility and a small RPC in
 
 The workspace companion renders one card per workspace. A real agent or workspace failure takes precedence, followed by active work, then the stored review state. This keeps `Running` and `Error` truthful without mutating Paseo's native lifecycle. Review markers and the order of all five columns are persisted together in one atomic workflow document. The client applies placements optimistically and pauses polling while the daemon saves, so cards land immediately without a refetch snap-back. Desktop/web cards use the platform's drag events because Paseo's plugin client runtime does not expose its internal `@dnd-kit` packages; compact and keyboard flows use quiet “Move to” actions.
 
+Temp Chat is one active labeled agent per workspace. Its first question receives a bounded snapshot of workspace notes and recent primary-agent conversation. Manual refresh updates plugin-owned context state without sending a model turn, and only the next question carries the replacement snapshot. The agent transcript preserves the visible conversation, while applied-context metadata prevents the same large snapshot from being resent on every turn. Archiving uses Paseo's agent SDK, clears the active snapshot, and leaves the transcript in Paseo's archive.
+
 Archive remains an action outside the workflow state machine. Desktop/web users drag a card to a header target, while touch and keyboard users use a two-step card action. The client calls `paseo.workspaces.archive`, removes the workspace and its agents from the query cache immediately, and restores the previous cache if the daemon reports an error or does not confirm `archivedAt`.
 
 Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Dev Ports and Linear call the desktop preload's allowlisted `opener.openUrl` bridge when present, then fall back to a normal browser tab or native Linking.
@@ -55,7 +59,7 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Implementation phases
 
-1. Maintain Workspace Companion notes, board, review states, and workspace archiving.
+1. Maintain Workspace Companion notes, Temp Chat, board, review states, and workspace archiving.
 2. Maintain the Linear GraphQL adapter and confirmed mutations.
 3. Maintain Dev Ports discovery, safety classification, process controls, and Tailscale adapter.
 4. Typecheck, test, install, reload, inspect daemon health/logs, and review the complete diff.
@@ -76,4 +80,4 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22. Agent Board ordering is persistent and optimistic, and archiving uses a header drop target with rollback plus an accessible two-step fallback. On 2026-08-28, Prompt Library and QA Review were removed. Linear remains a workspace-context panel, while Workspace Notes is an Explorer-only panel beside Changes and Files. Linear uses bottom Previous/Next navigation, compact field controls, confirmed assignee changes, Markdown descriptions and comments, and operating-system browser links. Notes preview checklists update the Markdown and save immediately. For the Explorer-only Notes change, Workspace Companion passes its 19 focused tests, strict typecheck, and formatting check, then reloads as `running` with a clean `Plugin ready` log. Linear was already failed and was left untouched.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22. Agent Board ordering is persistent and optimistic, and archiving uses a header drop target with rollback plus an accessible two-step fallback. On 2026-08-28, Prompt Library and QA Review were removed. Linear remains a workspace-context panel, while Workspace Notes is an Explorer-only panel beside Changes and Files. Linear uses bottom Previous/Next navigation, compact field controls, confirmed assignee changes, Markdown descriptions and comments, and operating-system browser links. Notes preview checklists update the Markdown and save immediately. Temp Chat now adds a second Explorer-only workspace panel backed by a dedicated recoverable Paseo agent, manual bounded context refresh, launch configuration controls, and agent archiving. Workspace Companion passes its 27 focused tests, the complete plugin suite passes 47 tests, all plugins pass strict typechecking, and Workspace Companion reloads as `running` with a clean `Plugin ready` log.

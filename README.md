@@ -1,6 +1,6 @@
 # Paseo plugins
 
-Three local plugins for [Paseo](https://paseo.sh): workspace notes and an agent board, Linear issue work, and development-port controls.
+Three local plugins for [Paseo](https://paseo.sh): workspace notes, Temp Chat, and an agent board; Linear issue work; and development-port controls.
 
 > [!WARNING]
 > Paseo plugins are experimental, trusted code. Server-side plugin code runs without a sandbox on the daemon machine. Read the source before installing it, and expect Paseo API changes to require updates.
@@ -9,7 +9,7 @@ Three local plugins for [Paseo](https://paseo.sh): workspace notes and an agent 
 
 | Plugin                                             | What it adds                                                                                         | Extra requirement                   |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| [Workspace Companion](plugins/workspace-companion) | Markdown notes with auto-saving preview checklists, plus a draggable board and workspace archiving   | None                                |
+| [Workspace Companion](plugins/workspace-companion) | Markdown notes, workspace-context Temp Chat, plus a draggable board and workspace archiving          | None                                |
 | [Linear](plugins/linear)                           | Paged issue search, Markdown issue detail, comments, assignee, status, and priority changes          | A Linear personal API key           |
 | [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls | Linux daemon; Tailscale is optional |
 
