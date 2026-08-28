@@ -23,6 +23,7 @@ import {
 } from "./contracts";
 import { describeMutation } from "./mutations";
 import { openExternalLinearUrl } from "./external-url";
+import { MarkdownContent, type MarkdownStyles } from "./markdown.client";
 
 declare global {
   interface Window {
@@ -443,7 +444,11 @@ function IssueDetail({
           {issue.teamName} · {issue.assignee?.name ?? "Unassigned"}
         </Text>
         {issue.description ? (
-          <Text style={styles.description}>{issue.description}</Text>
+          <MarkdownContent
+            markdown={issue.description}
+            onOpenLink={onOpenExternal}
+            styles={styles.markdown}
+          />
         ) : null}
       </View>
 
@@ -588,7 +593,11 @@ function IssueDetail({
                     {new Date(item.createdAt).toLocaleString()}
                   </Text>
                 </View>
-                <Text style={styles.body}>{item.body}</Text>
+                <MarkdownContent
+                  markdown={item.body}
+                  onOpenLink={onOpenExternal}
+                  styles={styles.markdown}
+                />
               </View>
             ))}
           </View>
@@ -812,7 +821,7 @@ function useStyles(theme: PluginTheme, compact: boolean) {
       0.13,
     );
 
-    return StyleSheet.create({
+    const styles = StyleSheet.create({
       screen: { flex: 1, backgroundColor: theme.colors.surface0 },
       content: { padding: compact ? 16 : 20, gap: 14 },
       center: {
@@ -864,12 +873,6 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         color: theme.colors.foreground,
         fontSize: 13,
         lineHeight: 20,
-      },
-      description: {
-        color: theme.colors.foreground,
-        fontSize: 14,
-        lineHeight: 21,
-        marginTop: 6,
       },
       muted: {
         color: theme.colors.foregroundMuted,
@@ -1041,6 +1044,67 @@ function useStyles(theme: PluginTheme, compact: boolean) {
         paddingHorizontal: 20,
       },
     });
+
+    return {
+      ...styles,
+      markdown: {
+        container: { gap: 5, marginTop: 4 },
+        body: {
+          color: theme.colors.foreground,
+          fontSize: 13,
+          lineHeight: 20,
+        },
+        heading1: {
+          color: theme.colors.foreground,
+          fontSize: 17,
+          lineHeight: 23,
+          fontWeight: "600",
+          marginTop: 5,
+        },
+        heading2: {
+          color: theme.colors.foreground,
+          fontSize: 15,
+          lineHeight: 21,
+          fontWeight: "600",
+          marginTop: 4,
+        },
+        heading3: {
+          color: theme.colors.foreground,
+          fontSize: 14,
+          lineHeight: 20,
+          fontWeight: "600",
+          marginTop: 3,
+        },
+        strong: { fontWeight: "700" },
+        emphasis: { fontStyle: "italic" },
+        inlineCode: {
+          color: theme.colors.accent,
+          fontFamily: "monospace",
+        },
+        link: {
+          color: theme.colors.accent,
+          textDecorationLine: "underline",
+        },
+        blockquote: {
+          borderLeftWidth: 3,
+          borderLeftColor: theme.colors.accent,
+          paddingLeft: 9,
+          paddingVertical: 1,
+        },
+        codeBlock: {
+          padding: 10,
+          borderRadius: 8,
+          backgroundColor: control,
+        },
+        codeText: {
+          color: theme.colors.foreground,
+          fontFamily: "monospace",
+          fontSize: 12,
+          lineHeight: 18,
+        },
+        spacer: { height: 6 },
+      } satisfies MarkdownStyles,
+    };
   }, [theme, compact]);
 }
 

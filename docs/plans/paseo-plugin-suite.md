@@ -10,9 +10,9 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 
 ## Scope
 
-1. Workspace-scoped Markdown notes with write and preview modes; the current agent can refine a replacement note that the user reviews before saving.
+1. Workspace-scoped Markdown notes with write and preview modes. Preview task markers are interactive and save the current note immediately. The current agent can refine a replacement note that the user reviews before saving.
 2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
-3. A workspace-context Linear GraphQL panel with cursor-backed page navigation, issue detail, comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
+3. A workspace-context Linear GraphQL panel with cursor-backed page navigation, Markdown-rendered issue descriptions and comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
 4. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
 
 ## Non-goals
@@ -62,7 +62,7 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Validation
 
-- Focused Bun tests for concurrent persistence, board-state precedence, review workflow transitions and legacy-state migration, workspace routes, Linear credential/confirmation/error behavior, external browser selection, port parsing/safety, Tailscale command construction, and mapping ownership. No test mutates a live Linear account or Tailscale configuration.
+- Focused Bun tests for concurrent persistence, Markdown task toggling, board-state precedence, review workflow transitions and legacy-state migration, workspace routes, Linear credential/confirmation/error behavior, external browser selection, port parsing/safety, Tailscale command construction, and mapping ownership. No test mutates a live Linear account or Tailscale configuration.
 - Strict TypeScript checks in all three packages.
 - Paseo plugin installation/reload without daemon restart.
 - Daemon status and plugin list/log inspection after installation.
@@ -76,4 +76,4 @@ Global plugin surfaces do not receive Paseo's internal router or external-link h
 
 ## Status
 
-Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22. Agent Board ordering is persistent and optimistic, and archiving uses a header drop target with rollback plus an accessible two-step fallback. On 2026-08-28, Prompt Library and QA Review were removed, while Workspace Notes and Linear moved to workspace-context panels so Paseo lists them in its native workspace tab menu. Linear now uses bottom Previous/Next navigation, compact field controls, confirmed assignee changes, and operating-system browser links. The maintained suite passes 37 focused tests, all three strict typechecks, and formatting; Workspace Companion and Linear reload as `running` with clean `Plugin ready` logs.
+Implemented and locally installed on 2026-08-21. The Agent Board and Dev Ports native-quality pass was completed on 2026-08-22. Agent Board ordering is persistent and optimistic, and archiving uses a header drop target with rollback plus an accessible two-step fallback. On 2026-08-28, Prompt Library and QA Review were removed, while Workspace Notes and Linear moved to workspace-context panels so Paseo lists them in its native workspace tab menu. Linear now uses bottom Previous/Next navigation, compact field controls, confirmed assignee changes, Markdown descriptions and comments, and operating-system browser links. Notes preview checklists update the Markdown and save immediately. The maintained suite passes 39 focused tests, all three strict typechecks, and formatting; Workspace Companion and Linear reload as `running` with clean `Plugin ready` logs.

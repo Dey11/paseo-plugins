@@ -277,6 +277,24 @@
         margin-top: 12px;
         color: var(--text);
       }
+      .markdown-copy {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+        color: var(--text);
+      }
+      .markdown-copy code {
+        padding: 2px 5px;
+        border-radius: 5px;
+        color: var(--accent);
+        background: var(--control);
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+      }
+      .markdown-copy ul {
+        margin: 0;
+        padding-left: 20px;
+      }
       .section-label {
         margin-top: 18px;
         color: var(--muted);
@@ -396,6 +414,47 @@
           SFMono-Regular,
           Menlo,
           monospace;
+      }
+      .note-preview {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+      }
+      .note-preview h2 {
+        margin: 6px 0 2px;
+        font-size: 19px;
+      }
+      .task-row {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        align-items: center;
+        min-height: 40px;
+      }
+      .task-checkbox {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border: 0;
+        color: var(--text);
+        background: transparent;
+      }
+      .task-checkbox::before {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        content: "";
+      }
+      .task-checkbox.checked::before {
+        border-color: var(--accent);
+        color: #102019;
+        background: var(--accent);
+        content: "✓";
+        font-size: 12px;
+        font-weight: 700;
       }
       .panel-footer {
         display: flex;
@@ -643,9 +702,13 @@
           <span class="issue-id">SYS-218</span>
           <h2 class="detail-title">Make plugin panels match Paseo</h2>
           <p>System · Unassigned</p>
-          <p class="description">
-            Bring the Linear panel in line with Paseo's quiet grouped layout.
-          </p>
+          <div class="markdown-copy">
+            <p><strong>Deliverable:</strong> Match Paseo's grouped layout.</p>
+            <ul>
+              <li>Keep controls compact</li>
+              <li>Verify the <code>workspace</code> tab flow</li>
+            </ul>
+          </div>
           <div class="field-group">
             <div class="field-section">
               <div class="section-label" style="margin-top: 0">Status</div>
@@ -700,23 +763,30 @@
             </div>
           </div>
           <div class="segments" aria-label="Note view">
-            <button class="segment segment-active">Write</button>
-            <button class="segment">Preview</button>
+            <button class="segment">Write</button>
+            <button class="segment segment-active">Preview</button>
           </div>
-          <div class="note-editor">
-            <textarea aria-label="Workspace note">
-## Decisions
-
-- Keep the board limited to five states
-- Test the drag interaction on desktop
-
-## Follow-ups
-
-- Verify compact layout on iPhone
-- Recheck the dev-server browser handoff</textarea>
+          <div class="note-editor note-preview">
+            <h2>Decisions</h2>
+            <div class="task-row">
+              <button
+                class="task-checkbox checked"
+                aria-label="Completed"
+              ></button>
+              <span>Keep the board limited to five states</span>
+            </div>
+            <div class="task-row">
+              <button class="task-checkbox" aria-label="Not completed"></button>
+              <span>Test the drag interaction on desktop</span>
+            </div>
+            <h2>Follow-ups</h2>
+            <div class="task-row">
+              <button class="task-checkbox" aria-label="Not completed"></button>
+              <span>Verify compact layout on iPhone</span>
+            </div>
           </div>
           <div class="panel-footer">
-            <span class="save-state">Unsaved changes</span>
+            <span class="save-state">Saved just now</span>
             <div class="footer-actions">
               <button class="ghost">Refine with agent</button>
               <button class="primary">Save</button>

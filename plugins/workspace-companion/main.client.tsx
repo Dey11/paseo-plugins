@@ -36,6 +36,7 @@ import {
   type BoardState,
   type BoardWorkflow,
 } from "./workflow";
+import { toggleMarkdownTask } from "./markdown";
 import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
 
 const REVIEW_STATES: readonly ReviewState[] = [
@@ -88,12 +89,12 @@ export function NotesPanel({
   }, [note.data]);
   const dirty = markdown !== savedMarkdown;
 
-  async function save() {
+  async function persistNote(nextMarkdown: string) {
     setBusy("save");
     setNotice("");
     setNoticeIsError(false);
     try {
-      const saved = await saveNote({ workspaceId, markdown });
+      const saved = await saveNote({ workspaceId, markdown: nextMarkdown });
       setSavedMarkdown(saved.markdown);
       setUpdatedAt(saved.updatedAt);
     } catch (error) {
@@ -102,6 +103,18 @@ export function NotesPanel({
     } finally {
       setBusy(null);
     }
+  }
+
+  async function save() {
+    await persistNote(markdown);
+  }
+
+  async function toggleChecklist(lineIndex: number) {
+    if (busy !== null || note.isError) return;
+    const nextMarkdown = toggleMarkdownTask(markdown, lineIndex);
+    if (nextMarkdown === markdown) return;
+    setMarkdown(nextMarkdown);
+    await persistNote(nextMarkdown);
   }
 
   async function askAgent() {
@@ -176,7 +189,12 @@ export function NotesPanel({
               style={styles.noteEditor}
             />
           ) : (
-            <MarkdownPreview markdown={markdown} styles={styles} />
+            <MarkdownPreview
+              markdown={markdown}
+              checklistDisabled={busy !== null || note.isError}
+              onToggleChecklist={toggleChecklist}
+              styles={styles}
+            />
           )}
         </View>
       )}
@@ -939,9 +957,13 @@ function openWorkspace(
 
 function MarkdownPreview({
   markdown,
+  checklistDisabled,
+  onToggleChecklist,
   styles,
 }: {
   markdown: string;
+  checklistDisabled: boolean;
+  onToggleChecklist: (lineIndex: number) => Promise<void>;
   styles: Styles;
 }) {
   if (!markdown.trim())
@@ -988,13 +1010,32 @@ function MarkdownPreview({
       );
       continue;
     }
-    const checkbox = line.match(/^[-*] \[([ xX])\] (.*)$/);
+    const checkbox = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/);
     if (checkbox) {
+      const checked = checkbox[1]?.toLowerCase() === "x";
+      const label = checkbox[2] ?? "";
       blocks.push(
-        <Text key={index} style={styles.body}>
-          {checkbox[1]?.toLowerCase() === "x" ? "☑" : "☐"}{" "}
-          {renderInline(checkbox[2] ?? "", styles)}
-        </Text>,
+        <View key={index} style={styles.taskRow}>
+          <Pressable
+            accessibilityLabel={`${checked ? "Mark incomplete" : "Mark complete"}: ${label}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked, disabled: checklistDisabled }}
+            disabled={checklistDisabled}
+            onPress={() => onToggleChecklist(index)}
+            style={({ pressed }) => [
+              styles.taskToggle,
+              pressed && styles.taskTogglePressed,
+              checklistDisabled && styles.taskToggleDisabled,
+            ]}
+          >
+            <View style={[styles.taskBox, checked && styles.taskBoxChecked]}>
+              {checked ? <Text style={styles.taskCheckmark}>✓</Text> : null}
+            </View>
+          </Pressable>
+          <Text style={[styles.body, checked && styles.taskTextChecked]}>
+            {renderInline(label, styles)}
+          </Text>
+        </View>,
       );
       continue;
     }
@@ -1414,6 +1455,42 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           minHeight: compact ? 320 : 400,
           gap: 5,
           padding: compact ? 14 : 18,
+        },
+        taskRow: {
+          minHeight: 40,
+          flexDirection: "row",
+          alignItems: "center",
+        },
+        taskToggle: {
+          width: 40,
+          minHeight: 40,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        taskTogglePressed: { opacity: 0.7 },
+        taskToggleDisabled: { opacity: 0.5 },
+        taskBox: {
+          width: 18,
+          height: 18,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.colors.foregroundMuted,
+          borderRadius: 5,
+        },
+        taskBoxChecked: {
+          borderColor: theme.colors.accent,
+          backgroundColor: theme.colors.accent,
+        },
+        taskCheckmark: {
+          color: theme.colors.accentForeground,
+          fontSize: 12,
+          lineHeight: 14,
+          fontWeight: "700",
+        },
+        taskTextChecked: {
+          color: theme.colors.foregroundMuted,
+          textDecorationLine: "line-through",
         },
         panelError: {
           flexDirection: "row",
