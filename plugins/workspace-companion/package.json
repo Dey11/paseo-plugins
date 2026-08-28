@@ -1,6 +1,6 @@
 {
   "name": "workspace-companion",
-  "description": "Workspace notes, agent board, and transcript-aware QA plans for Paseo.",
+  "description": "Workspace notes and an agent board for Paseo.",
   "private": true,
   "version": "0.0.0",
   "license": "MIT",

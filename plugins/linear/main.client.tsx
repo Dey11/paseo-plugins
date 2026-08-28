@@ -1,4 +1,4 @@
-import type { PluginAgentPanelProps, PluginTheme } from "@getpaseo/plugin";
+import type { PluginTheme, PluginWorkspacePanelProps } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
@@ -30,7 +30,7 @@ type Notice = {
   text: string;
 };
 
-export function LinearPanel({ theme, layout }: PluginAgentPanelProps) {
+export function LinearPanel({ theme, layout }: PluginWorkspacePanelProps) {
   const statusRpc = useRpc(LinearStatusRpc);
   const searchRpc = useRpc(SearchLinearIssuesRpc);
   const getIssue = useRpc(GetLinearIssueRpc);

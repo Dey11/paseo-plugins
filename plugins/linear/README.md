@@ -1,6 +1,6 @@
 # Linear
 
-The Linear plugin adds an agent-context panel for:
+The Linear plugin adds a workspace panel for:
 
 - Searching issues by text
 - Reading issue descriptions and comments
@@ -21,7 +21,7 @@ paseo plugin install "$PWD/plugins/linear"
 paseo plugin ls
 ```
 
-Open **Linear** from an agent tab or the Command Center.
+Open **Linear** from the workspace **+** menu or the Command Center.
 
 ## Configure the API key
 

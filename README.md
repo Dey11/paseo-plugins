@@ -1,20 +1,19 @@
 # Paseo plugins
 
-Four local plugins for [Paseo](https://paseo.sh): workspace notes and QA planning, reusable prompts, Linear issue work, and development-port controls.
+Three local plugins for [Paseo](https://paseo.sh): workspace notes and an agent board, Linear issue work, and development-port controls.
 
 > [!WARNING]
 > Paseo plugins are experimental, trusted code. Server-side plugin code runs without a sandbox on the daemon machine. Read the source before installing it, and expect Paseo API changes to require updates.
 
 ## Included plugins
 
-| Plugin                                             | What it adds                                                                                           | Extra requirement                                          |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| [Workspace Companion](plugins/workspace-companion) | Markdown notes, a draggable agent board with workspace archiving, and transcript-aware manual QA plans | A configured Paseo coding-agent provider for QA generation |
-| [Prompt Library](plugins/prompt-library)           | A reusable prompt library in the sidebar and composer attachment picker                                | None                                                       |
-| [Linear](plugins/linear)                           | Issue search, comments, status changes, and priority changes                                           | A Linear personal API key                                  |
-| [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls   | Linux daemon; Tailscale is optional                        |
+| Plugin                                             | What it adds                                                                                         | Extra requirement                   |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| [Workspace Companion](plugins/workspace-companion) | Workspace-tab Markdown notes and a draggable agent board with workspace archiving                    | None                                |
+| [Linear](plugins/linear)                           | Workspace-tab issue search, comments, status changes, and priority changes                           | A Linear personal API key           |
+| [Dev Ports](plugins/dev-ports)                     | Workspace port discovery, safe process stopping, browser links, and private Tailscale Serve controls | Linux daemon; Tailscale is optional |
 
-Each plugin is independently installable. You do not need to enable all four.
+Each plugin is independently installable. You do not need to enable all three.
 
 ## Quick start
 
@@ -38,7 +37,6 @@ In Paseo, open **Settings → Plugins** and enable plugins. Then install only th
 
 ```bash
 paseo plugin install "$PWD/plugins/workspace-companion"
-paseo plugin install "$PWD/plugins/prompt-library"
 paseo plugin install "$PWD/plugins/linear"
 paseo plugin install "$PWD/plugins/dev-ports"
 paseo plugin ls
@@ -58,7 +56,6 @@ bun install --frozen-lockfile
 bun run test
 bun run typecheck
 paseo plugin reload workspace-companion
-paseo plugin reload prompt-library
 paseo plugin reload linear
 paseo plugin reload dev-ports
 ```
@@ -72,7 +69,6 @@ Plugin state is stored under the daemon's Paseo home, normally `~/.paseo/plugin-
 - Linear mutations require an explicit confirmation in the UI.
 - Dev Ports only shows same-user listeners inside registered Paseo workspaces. It sends `SIGTERM` and never force-kills a process.
 - Dev Ports creates private Tailscale Serve mappings. It never enables Tailscale Funnel.
-- Workspace Companion sends the focused agent transcript and current workspace changes to the provider configured for QA planning.
 
 Read [SECURITY.md](SECURITY.md) before installing the plugins on a shared daemon.
 
@@ -89,7 +85,7 @@ The suite uses Bun workspaces. Each plugin keeps its own Paseo manifest, strict 
 
 ## Paseo compatibility
 
-Paseo does not currently provide a stable plugin distribution format. This repository distributes source directories that the daemon compiles locally. Use a recent Paseo release and consult the official [plugin quickstart](https://paseo.sh/docs/plugins) and [plugin reference](https://paseo.sh/docs/plugins/reference) when the API changes.
+Paseo's plugin API is experimental. This repository distributes source directories that the daemon compiles locally. Use a recent Paseo release and consult the official [plugin quickstart](https://paseo.sh/docs/plugins) and [plugin reference](https://paseo.sh/docs/plugins/reference) when the API changes.
 
 ## License
 

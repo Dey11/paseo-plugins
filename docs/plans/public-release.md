@@ -2,7 +2,7 @@
 
 ## Goal
 
-Publish the existing four-plugin suite to `Dey11/paseo-plugins` with enough setup, security, and troubleshooting information for another Paseo user to install one plugin without maintainer help.
+Publish the plugin suite to `Dey11/paseo-plugins` with enough setup, security, and troubleshooting information for another Paseo user to install one plugin without maintainer help.
 
 ## Context
 
@@ -12,7 +12,7 @@ Paseo's plugin API is experimental and currently distributes local source direct
 
 - Root installation, update, removal, security, and contribution guides
 - One README per plugin
-- Portable configuration files for Linear and Workspace Companion QA
+- Portable configuration for Linear
 - CI for formatting, tests, and strict TypeScript checks
 - MIT license and repository metadata
 
@@ -20,7 +20,7 @@ Paseo's plugin API is experimental and currently distributes local source direct
 
 - npm publication or a plugin marketplace package
 - Automatic installation scripts that enable trusted code without review
-- Changing the product behavior of the four plugins
+- Changing plugin product behavior beyond the release requirements
 - Making the GitHub repository public; the owner will do that later
 
 ## Chosen approach
@@ -38,8 +38,7 @@ Use the existing Bun workspace as the repository root. Paseo installs each `plug
 
 - Paseo API changes may break source compatibility. The guides link to current official plugin documentation and describe the API as experimental.
 - Tailscale and Linear operate outside Paseo. Their guides state exact permissions and avoid live mutation tests.
-- QA generation requires provider-specific IDs. The plugin exposes those IDs through daemon environment variables or a user-only configuration file.
 
 ## Status
 
-Completed on 2026-08-22. The committed tree passes formatting, 39 focused tests, and all four strict TypeScript checks from a fresh clone. The release is published to the private `Dey11/paseo-plugins` repository with a clean `main` history; the owner will make it public later.
+Completed on 2026-08-22. The initial four-plugin release was published with a clean `main` history. Prompt Library and QA Review were removed from the maintained suite on 2026-08-28; the root README and current installation guide define the supported set.

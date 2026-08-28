@@ -658,7 +658,7 @@
           <div class="panel-heading">
             <div>
               <h1>Notes</h1>
-              <p>Workspace context shared with this agent</p>
+              <p>Private Markdown context for this workspace</p>
             </div>
           </div>
           <div class="segments" aria-label="Note view">
@@ -670,7 +670,7 @@
 ## Decisions
 
 - Keep the board limited to five states
-- QA the drag interaction on desktop
+- Test the drag interaction on desktop
 
 ## Follow-ups
 
@@ -684,84 +684,6 @@
               <button class="primary">Save</button>
             </div>
           </div>
-        </div>
-        <div class="native-panel">
-          <div class="panel-heading">
-            <div>
-              <h1>QA review</h1>
-              <p>Manual checks inferred from the work and its conversation</p>
-            </div>
-            <button class="primary">Regenerate</button>
-          </div>
-          <div class="review-source">
-            <span>18 transcript messages</span>
-            <span>7 changed files</span>
-            <span>+184 −96</span>
-            <span>Generated 4:32 AM</span>
-          </div>
-          <section class="review-section">
-            <div class="review-label">What changed</div>
-            <div class="change-summary">
-              <p>
-                The workspace companion panels now use Paseo's quieter grouped
-                layout.
-              </p>
-              <p>
-                Review planning now turns the agent conversation and current
-                diff into manual QA flows.
-              </p>
-            </div>
-          </section>
-          <section class="review-section">
-            <div class="review-label">Test these flows</div>
-            <div class="flow-list">
-              <article class="flow-row">
-                <div class="flow-title">
-                  <h2>Generate a QA plan from an agent</h2>
-                  <span class="priority priority-high">High</span>
-                </div>
-                <p class="flow-reason">
-                  The review action now reads transcript context and
-                  working-tree changes.
-                </p>
-                <ol class="steps">
-                  <li>Focus an agent with completed workspace changes.</li>
-                  <li>Open QA review and choose Regenerate.</li>
-                  <li>
-                    Confirm the plan names the changed screens and gives
-                    executable checks.
-                  </li>
-                </ol>
-              </article>
-              <article class="flow-row">
-                <div class="flow-title">
-                  <h2>Edit and preview a workspace note</h2>
-                  <span class="priority">Normal</span>
-                </div>
-                <p class="flow-reason">
-                  The note editor, preview, dirty state, and save controls were
-                  redesigned.
-                </p>
-                <ol class="steps">
-                  <li>Edit Markdown and verify Unsaved changes appears.</li>
-                  <li>Switch between Write and Preview without losing text.</li>
-                  <li>
-                    Save, reopen the panel, and confirm the note persists.
-                  </li>
-                </ol>
-              </article>
-            </div>
-          </section>
-          <section class="review-section">
-            <div class="review-label">Watch for</div>
-            <ul class="watch-list">
-              <li>
-                Plans that describe implementation details instead of
-                user-visible checks
-              </li>
-              <li>Missing empty and error states on compact clients</li>
-            </ul>
-          </section>
         </div>
       </section>
     </main>

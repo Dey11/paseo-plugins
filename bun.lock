@@ -39,19 +39,6 @@
         "zod": "^4.4.3",
       },
     },
-    "plugins/prompt-library": {
-      "name": "prompt-library",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@getpaseo/client": "^0.4.0",
-        "@tanstack/react-query": "^5.90.11",
-        "@types/react": "~19.2.0",
-        "react": "19.1.0",
-        "react-native": "0.81.5",
-        "typescript": "^5.9.3",
-        "zod": "^4.4.3",
-      },
-    },
     "plugins/workspace-companion": {
       "name": "workspace-companion",
       "version": "0.0.0",
@@ -540,8 +527,6 @@
     "pretty-format": ["pretty-format@29.7.0", "", { "dependencies": { "@jest/schemas": "^29.6.3", "ansi-styles": "^5.0.0", "react-is": "^18.0.0" } }, "sha512-Pdlw/oPxN+aXdmM9R00JVC9WVFoCLTKJvDVLgmJ+qAffBMxsV85l/Lu7sNx4zSzPyoL2euImuEwHhOXdEgNFZQ=="],
 
     "promise": ["promise@8.3.0", "", { "dependencies": { "asap": "~2.0.6" } }, "sha512-rZPNPKTOYVNEEKFaq1HqTgOwZD+4/YHS5ukLzQCypkj+OkYx7iv0mA91lJlpPPZ8vMau3IIGj5Qlwrx+8iiSmg=="],
-
-    "prompt-library": ["prompt-library@workspace:plugins/prompt-library"],
 
     "range-parser": ["range-parser@1.2.1", "", {}, "sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg=="],
 
