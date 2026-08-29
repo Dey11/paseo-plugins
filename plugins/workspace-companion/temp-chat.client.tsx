@@ -66,7 +66,6 @@ export function TempChatPanel({
   const styles = useTempChatStyles(theme, layout.compact);
   const messageListRef = useRef<ScrollView>(null);
   const [draft, setDraft] = useState("");
-  const [composerFocused, setComposerFocused] = useState(false);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [notice, setNotice] = useState("");
   const [noticeIsError, setNoticeIsError] = useState(false);
@@ -651,16 +650,12 @@ export function TempChatPanel({
         </Text>
       )}
 
-      <View
-        style={[styles.composer, composerFocused && styles.composerFocused]}
-      >
+      <View style={styles.composer}>
         <TextInput
           accessibilityLabel="Message Temp chat"
           editable={!working && busy !== "archive"}
           multiline
-          onBlur={() => setComposerFocused(false)}
           onChangeText={setDraft}
-          onFocus={() => setComposerFocused(true)}
           onKeyPress={handleComposerKeyPress}
           onSubmitEditing={() => {
             if (layout.platform !== "web" && canSend) void sendMessage();
@@ -1466,18 +1461,13 @@ function useTempChatStyles(theme: PluginTheme, compact: boolean) {
           flexDirection: "row",
           alignItems: "flex-end",
           gap: 8,
-          borderWidth: 1,
-          borderColor: "transparent",
           borderRadius: 13,
-          padding: 5,
+          padding: 6,
           backgroundColor: blendHex(
             theme.colors.surface0,
             theme.colors.foreground,
             0.06,
           ),
-        },
-        composerFocused: {
-          borderColor: theme.colors.accent,
         },
         composerInput: {
           flex: 1,
