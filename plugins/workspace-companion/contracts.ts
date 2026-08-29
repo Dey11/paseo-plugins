@@ -31,35 +31,6 @@ export const SaveNoteRpc = defineRpc({
   output: NoteSchema,
 });
 
-export const TempChatContextSchema = z.object({
-  workspaceId: z.string().min(1),
-  snapshot: z.string().max(60_000),
-  sourceAgentCount: z.number().int().nonnegative(),
-  omittedAgentCount: z.number().int().nonnegative(),
-  includesNote: z.boolean(),
-  capturedAt: z.string().nullable(),
-  appliedAgentId: z.string().nullable(),
-  appliedCapturedAt: z.string().nullable(),
-});
-
-export const GetTempChatContextRpc = defineRpc({
-  name: "workspace-companion.temp-chat-context.get",
-  input: z.object({ workspaceId: z.string().min(1) }),
-  output: TempChatContextSchema,
-});
-
-export const SaveTempChatContextRpc = defineRpc({
-  name: "workspace-companion.temp-chat-context.save",
-  input: TempChatContextSchema,
-  output: TempChatContextSchema,
-});
-
-export const ResetTempChatContextRpc = defineRpc({
-  name: "workspace-companion.temp-chat-context.reset",
-  input: z.object({ workspaceId: z.string().min(1) }),
-  output: TempChatContextSchema,
-});
-
 const StoredReviewStateSchema = z
   .union([ReviewStateSchema, z.literal("reviewed")])
   .transform((state): ReviewState => normalizeStoredReviewState(state));

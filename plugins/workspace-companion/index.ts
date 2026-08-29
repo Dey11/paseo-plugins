@@ -3,25 +3,16 @@ import {
   BoardWorkflowSchema,
   GetBoardWorkflowRpc,
   GetNoteRpc,
-  GetTempChatContextRpc,
   NoteSchema,
   PlaceBoardCardRpc,
-  ResetTempChatContextRpc,
   SaveNoteRpc,
-  SaveTempChatContextRpc,
-  TempChatContextSchema,
 } from "./contracts";
 import { AgentBoardSurface, NotesPanel } from "./main.client";
-import { TempChatPanel } from "./temp-chat.client";
 import { JsonStore, pluginDataDirectory, workspaceFile } from "./store.server";
 import { createBoardWorkflow, placeBoardCard } from "./workflow";
 
 let boardWorkflow: ReturnType<typeof createBoardWorkflowStore> | undefined;
 const noteStores = new Map<string, ReturnType<typeof createNoteStore>>();
-const tempChatContextStores = new Map<
-  string,
-  ReturnType<typeof createTempChatContextStore>
->();
 
 export default function contribute(plugin: PluginContext) {
   plugin.handle(GetNoteRpc, async ({ workspaceId }) =>
@@ -33,15 +24,6 @@ export default function contribute(plugin: PluginContext) {
       markdown,
       updatedAt: new Date().toISOString(),
     }),
-  );
-  plugin.handle(GetTempChatContextRpc, async ({ workspaceId }) =>
-    tempChatContextStore(workspaceId).read(),
-  );
-  plugin.handle(SaveTempChatContextRpc, async (context) =>
-    tempChatContextStore(context.workspaceId).write(context),
-  );
-  plugin.handle(ResetTempChatContextRpc, async ({ workspaceId }) =>
-    tempChatContextStore(workspaceId).write(emptyTempChatContext(workspaceId)),
   );
   plugin.handle(GetBoardWorkflowRpc, () => boardWorkflowStore().read());
   plugin.handle(PlaceBoardCardRpc, (placement) =>
@@ -65,14 +47,6 @@ export default function contribute(plugin: PluginContext) {
     locations: ["explorer"],
     Component: NotesPanel,
   });
-  plugin.addWorkspacePanel({
-    id: "temp-chat",
-    title: "Temp chat",
-    icon: "CircleDot",
-    context: "workspace",
-    locations: ["explorer"],
-    Component: TempChatPanel,
-  });
   plugin.addCommandCenterItem({
     id: "open-agent-board",
     title: "Open agent board",
@@ -86,15 +60,6 @@ export default function contribute(plugin: PluginContext) {
     icon: "ListPlus",
     context: "workspace",
     onSelect: ({ openPanel }) => openPanel("notes", { location: "explorer" }),
-  });
-  plugin.addCommandCenterItem({
-    id: "open-temp-chat",
-    title: "Open Temp chat",
-    icon: "CircleDot",
-    keywords: ["temporary", "clarify", "question", "side chat"],
-    context: "workspace",
-    onSelect: ({ openPanel }) =>
-      openPanel("temp-chat", { location: "explorer" }),
   });
   return () => {};
 }
@@ -117,39 +82,6 @@ function createNoteStore(workspaceId: string) {
     NoteSchema,
     () => ({ workspaceId, markdown: "", updatedAt: new Date(0).toISOString() }),
   );
-}
-
-function tempChatContextStore(workspaceId: string) {
-  const existing = tempChatContextStores.get(workspaceId);
-  if (existing) return existing;
-  const store = createTempChatContextStore(workspaceId);
-  tempChatContextStores.set(workspaceId, store);
-  return store;
-}
-
-function createTempChatContextStore(workspaceId: string) {
-  return new JsonStore(
-    workspaceFile(
-      pluginDataDirectory("workspace-companion"),
-      workspaceId,
-      "temp-chat-context",
-    ),
-    TempChatContextSchema,
-    () => emptyTempChatContext(workspaceId),
-  );
-}
-
-function emptyTempChatContext(workspaceId: string) {
-  return {
-    workspaceId,
-    snapshot: "",
-    sourceAgentCount: 0,
-    omittedAgentCount: 0,
-    includesNote: false,
-    capturedAt: null,
-    appliedAgentId: null,
-    appliedCapturedAt: null,
-  };
 }
 
 function boardWorkflowStore() {

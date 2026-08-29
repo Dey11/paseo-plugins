@@ -8,7 +8,7 @@ Review the plugin directory before installing it. On shared daemons, treat plugi
 
 ## Plugin permissions
 
-- `workspace-companion` stores notes, Temp Chat context snapshots, and board state under Paseo's plugin-data directory. Refining a note sends its current contents to the selected workspace agent. Temp Chat sends a bounded snapshot of workspace notes and recent agent conversation to its selected model and retains it in the dedicated agent transcript until that transcript is removed through Paseo.
+- `workspace-companion` stores notes and board state under Paseo's plugin-data directory. Refining a note sends its current contents to the selected workspace agent.
 - `linear` sends requests to Linear with the configured personal API key. Writes require an explicit confirmation in the panel.
 - `dev-ports` reads Linux socket and `/proc` metadata, can send `SIGTERM` to a verified same-user workspace process, and can create or remove Tailscale Serve mappings that it owns.
 

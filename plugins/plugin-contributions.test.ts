@@ -48,7 +48,6 @@ describe("Paseo client contributions", () => {
   test("exposes workspace tools in the workspace tab launcher", async () => {
     const expectations = [
       ["plugins/workspace-companion/index.ts", "notes"],
-      ["plugins/workspace-companion/index.ts", "temp-chat"],
       ["plugins/linear/index.ts", "linear"],
     ] as const;
 
