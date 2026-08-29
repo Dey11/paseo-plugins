@@ -37,7 +37,16 @@ import {
   type BoardWorkflow,
 } from "./workflow";
 import { toggleMarkdownTask } from "./markdown";
+import { openExternalNoteUrl } from "./external-url";
 import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
+
+declare global {
+  interface Window {
+    paseoDesktop?: {
+      opener?: { openUrl?: (url: string) => Promise<void> };
+    };
+  }
+}
 
 const REVIEW_STATES: readonly ReviewState[] = [
   "unreviewed",
@@ -117,6 +126,31 @@ export function NotesPanel({
     await persistNote(nextMarkdown);
   }
 
+  async function openLinkInBrowser(url: string) {
+    setNotice("");
+    setNoticeIsError(false);
+    try {
+      const desktopOpen =
+        typeof window !== "undefined" &&
+        typeof window.paseoDesktop?.opener?.openUrl === "function"
+          ? (value: string) => window.paseoDesktop?.opener?.openUrl?.(value)
+          : undefined;
+      await openExternalNoteUrl(url, {
+        platform: layout.platform,
+        desktopOpen,
+        browserOpen: (value) => {
+          if (typeof window !== "undefined") {
+            window.open(value, "_blank", "noopener,noreferrer");
+          }
+        },
+        nativeOpen: Linking.openURL,
+      });
+    } catch (error) {
+      setNotice(message(error));
+      setNoticeIsError(true);
+    }
+  }
+
   async function askAgent() {
     setBusy("refine");
     setNotice("");
@@ -192,6 +226,7 @@ export function NotesPanel({
             <MarkdownPreview
               markdown={markdown}
               checklistDisabled={busy !== null || note.isError}
+              onOpenLink={openLinkInBrowser}
               onToggleChecklist={toggleChecklist}
               styles={styles}
             />
@@ -958,11 +993,13 @@ function openWorkspace(
 function MarkdownPreview({
   markdown,
   checklistDisabled,
+  onOpenLink,
   onToggleChecklist,
   styles,
 }: {
   markdown: string;
   checklistDisabled: boolean;
+  onOpenLink: (url: string) => Promise<void>;
   onToggleChecklist: (lineIndex: number) => Promise<void>;
   styles: Styles;
 }) {
@@ -989,7 +1026,7 @@ function MarkdownPreview({
     if (line.startsWith("### ")) {
       blocks.push(
         <Text key={index} style={styles.heading3}>
-          {renderInline(line.slice(4), styles)}
+          {renderInline(line.slice(4), styles, onOpenLink)}
         </Text>,
       );
       continue;
@@ -997,7 +1034,7 @@ function MarkdownPreview({
     if (line.startsWith("## ")) {
       blocks.push(
         <Text key={index} style={styles.heading2}>
-          {renderInline(line.slice(3), styles)}
+          {renderInline(line.slice(3), styles, onOpenLink)}
         </Text>,
       );
       continue;
@@ -1005,7 +1042,7 @@ function MarkdownPreview({
     if (line.startsWith("# ")) {
       blocks.push(
         <Text key={index} style={styles.heading1}>
-          {renderInline(line.slice(2), styles)}
+          {renderInline(line.slice(2), styles, onOpenLink)}
         </Text>,
       );
       continue;
@@ -1033,7 +1070,7 @@ function MarkdownPreview({
             </View>
           </Pressable>
           <Text style={[styles.body, checked && styles.taskTextChecked]}>
-            {renderInline(label, styles)}
+            {renderInline(label, styles, onOpenLink)}
           </Text>
         </View>,
       );
@@ -1043,7 +1080,7 @@ function MarkdownPreview({
     if (bullet) {
       blocks.push(
         <Text key={index} style={styles.body}>
-          • {renderInline(bullet[1] ?? "", styles)}
+          • {renderInline(bullet[1] ?? "", styles, onOpenLink)}
         </Text>,
       );
       continue;
@@ -1052,7 +1089,7 @@ function MarkdownPreview({
     if (numbered) {
       blocks.push(
         <Text key={index} style={styles.body}>
-          {numbered[1]}. {renderInline(numbered[2] ?? "", styles)}
+          {numbered[1]}. {renderInline(numbered[2] ?? "", styles, onOpenLink)}
         </Text>,
       );
       continue;
@@ -1060,21 +1097,27 @@ function MarkdownPreview({
     if (line.startsWith("> ")) {
       blocks.push(
         <View key={index} style={styles.blockquote}>
-          <Text style={styles.body}>{renderInline(line.slice(2), styles)}</Text>
+          <Text style={styles.body}>
+            {renderInline(line.slice(2), styles, onOpenLink)}
+          </Text>
         </View>,
       );
       continue;
     }
     blocks.push(
       <Text key={index} style={styles.body}>
-        {line ? renderInline(line, styles) : " "}
+        {line ? renderInline(line, styles, onOpenLink) : " "}
       </Text>,
     );
   }
   return <View style={styles.preview}>{blocks}</View>;
 }
 
-function renderInline(value: string, styles: Styles): React.ReactNode[] {
+function renderInline(
+  value: string,
+  styles: Styles,
+  onOpenLink: (url: string) => Promise<void>,
+): React.ReactNode[] {
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\))/g;
   const nodes: React.ReactNode[] = [];
   let cursor = 0;
@@ -1088,7 +1131,7 @@ function renderInline(value: string, styles: Styles): React.ReactNode[] {
         <Text
           key={`${start}-link`}
           accessibilityRole="link"
-          onPress={() => Linking.openURL(link[2] ?? "")}
+          onPress={() => void onOpenLink(link[2] ?? "")}
           style={styles.link}
         >
           {link[1]}

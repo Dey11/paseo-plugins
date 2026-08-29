@@ -10,7 +10,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 
 ## Scope
 
-1. Workspace-scoped Markdown notes with write and preview modes. Preview task markers are interactive and save the current note immediately. The current agent can refine a replacement note that the user reviews before saving.
+1. Workspace-scoped Markdown notes with write and preview modes. Preview task markers are interactive and save the current note immediately, while HTTP and HTTPS links open in the operating system browser. The current agent can refine a replacement note that the user reviews before saving.
 2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
 3. A workspace-context Linear GraphQL panel with cursor-backed page navigation, Markdown-rendered issue descriptions and comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
 4. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
@@ -42,7 +42,7 @@ The workspace companion renders one card per workspace. A real agent or workspac
 
 Archive remains an action outside the workflow state machine. Desktop/web users drag a card to a header target, while touch and keyboard users use a two-step card action. The client calls `paseo.workspaces.archive`, removes the workspace and its agents from the query cache immediately, and restores the previous cache if the daemon reports an error or does not confirm `archivedAt`.
 
-Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Dev Ports and Linear call the desktop preload's allowlisted `opener.openUrl` bridge when present, then fall back to a normal browser tab or native Linking.
+Global plugin surfaces do not receive Paseo's internal router or external-link helper. Workspace cards therefore use Paseo's canonical host/workspace URL on web and its `paseo://` deep link on native. Workspace Notes, Dev Ports, and Linear call the desktop preload's allowlisted `opener.openUrl` bridge when present, then fall back to a normal browser tab or native Linking.
 
 ## Alternatives considered
 
