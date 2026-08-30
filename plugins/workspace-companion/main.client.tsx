@@ -37,7 +37,12 @@ import {
   type BoardState,
   type BoardWorkflow,
 } from "./workflow";
-import { toggleMarkdownTask } from "./markdown";
+import {
+  parseMarkdownTable,
+  toggleMarkdownTask,
+  tokenizeMarkdownInline,
+  type MarkdownTable as ParsedMarkdownTable,
+} from "./markdown";
 import type { NoteViewMode, WorkspaceNote } from "./note";
 import { openExternalNoteUrl } from "./external-url";
 import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
@@ -1062,6 +1067,19 @@ function MarkdownPreview({
       );
       continue;
     }
+    const table = parseMarkdownTable(lines, index);
+    if (table) {
+      blocks.push(
+        <MarkdownTablePreview
+          key={`table-${index}`}
+          table={table}
+          styles={styles}
+          onOpenLink={onOpenLink}
+        />,
+      );
+      index = table.endIndex;
+      continue;
+    }
     if (line.startsWith("### ")) {
       blocks.push(
         <Text key={index} style={styles.heading3}>
@@ -1152,47 +1170,132 @@ function MarkdownPreview({
   return <View style={styles.preview}>{blocks}</View>;
 }
 
+function MarkdownTablePreview({
+  table,
+  styles,
+  onOpenLink,
+}: {
+  table: ParsedMarkdownTable;
+  styles: Styles;
+  onOpenLink: (url: string) => Promise<void>;
+}) {
+  const columnWidths = table.headers.map((header, columnIndex) => {
+    const longestCell = Math.max(
+      header.length,
+      ...table.rows.map((row) => row[columnIndex]?.length ?? 0),
+    );
+    return Math.min(260, Math.max(120, longestCell * 7 + 24));
+  });
+
+  return (
+    <ScrollView
+      horizontal
+      nestedScrollEnabled
+      showsHorizontalScrollIndicator={false}
+      style={styles.tableScroller}
+    >
+      <View style={styles.table}>
+        <View style={[styles.tableRow, styles.tableHeaderRow]}>
+          {table.headers.map((header, columnIndex) => (
+            <View
+              key={`header-${columnIndex}`}
+              style={[
+                styles.tableCell,
+                columnIndex > 0 && styles.tableCellBorder,
+                { width: columnWidths[columnIndex] },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tableHeaderText,
+                  table.alignments[columnIndex] && {
+                    textAlign: table.alignments[columnIndex] ?? "left",
+                  },
+                ]}
+              >
+                {renderInline(header, styles, onOpenLink)}
+              </Text>
+            </View>
+          ))}
+        </View>
+        {table.rows.map((row, rowIndex) => (
+          <View
+            key={`row-${rowIndex}`}
+            style={[styles.tableRow, styles.tableRowBorder]}
+          >
+            {row.map((cell, columnIndex) => (
+              <View
+                key={`cell-${rowIndex}-${columnIndex}`}
+                style={[
+                  styles.tableCell,
+                  columnIndex > 0 && styles.tableCellBorder,
+                  { width: columnWidths[columnIndex] },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tableCellText,
+                    table.alignments[columnIndex] && {
+                      textAlign: table.alignments[columnIndex] ?? "left",
+                    },
+                  ]}
+                >
+                  {cell ? renderInline(cell, styles, onOpenLink) : " "}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
 function renderInline(
   value: string,
   styles: Styles,
   onOpenLink: (url: string) => Promise<void>,
 ): React.ReactNode[] {
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\))/g;
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-  for (const match of value.matchAll(pattern)) {
-    const start = match.index ?? 0;
-    if (start > cursor) nodes.push(value.slice(cursor, start));
-    const token = match[0];
-    const link = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
-    if (link) {
-      nodes.push(
+  return tokenizeMarkdownInline(value).map((token, index) => {
+    if (token.kind === "external-link") {
+      return (
         <Text
-          key={`${start}-link`}
+          key={`${index}-link`}
           accessibilityRole="link"
-          onPress={() => void onOpenLink(link[2] ?? "")}
+          onPress={() => void onOpenLink(token.target)}
           style={styles.link}
         >
-          {link[1]}
-        </Text>,
-      );
-    } else if (token.startsWith("**")) {
-      nodes.push(
-        <Text key={`${start}-strong`} style={styles.strong}>
-          {token.slice(2, -2)}
-        </Text>,
-      );
-    } else {
-      nodes.push(
-        <Text key={`${start}-code`} style={styles.inlineCode}>
-          {token.slice(1, -1)}
-        </Text>,
+          {token.label}
+        </Text>
       );
     }
-    cursor = start + token.length;
-  }
-  if (cursor < value.length) nodes.push(value.slice(cursor));
-  return nodes;
+    if (token.kind === "strong") {
+      return (
+        <Text key={`${index}-strong`} style={styles.strong}>
+          {token.value}
+        </Text>
+      );
+    }
+    if (token.kind === "code") {
+      return (
+        <Text key={`${index}-code`} style={styles.inlineCode}>
+          {token.value}
+        </Text>
+      );
+    }
+    if (token.kind === "file") {
+      return (
+        <Text
+          key={`${index}-file`}
+          accessibilityLabel={`File location: ${token.target}`}
+          style={styles.fileLocation}
+        >
+          {token.label}
+        </Text>
+      );
+    }
+    return token.value;
+  });
 }
 
 function Header({
@@ -1617,6 +1720,11 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           color: theme.colors.accent,
           fontFamily: "monospace",
         },
+        fileLocation: {
+          color: theme.colors.accent,
+          fontFamily: "monospace",
+          fontSize: 13,
+        },
         link: {
           color: theme.colors.accent,
           textDecorationLine: "underline",
@@ -1637,6 +1745,58 @@ function useStyles(theme: PluginTheme, compact: boolean) {
           color: theme.colors.foreground,
           fontFamily: "monospace",
           fontSize: 12,
+          lineHeight: 18,
+        },
+        tableScroller: { marginVertical: 6 },
+        table: {
+          overflow: "hidden",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.14,
+          ),
+          borderRadius: 10,
+        },
+        tableRow: { flexDirection: "row" },
+        tableHeaderRow: {
+          backgroundColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.07,
+          ),
+        },
+        tableRowBorder: {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.14,
+          ),
+        },
+        tableCell: {
+          minHeight: 38,
+          justifyContent: "center",
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+        },
+        tableCellBorder: {
+          borderLeftWidth: StyleSheet.hairlineWidth,
+          borderLeftColor: blendHex(
+            theme.colors.surface0,
+            theme.colors.foreground,
+            0.14,
+          ),
+        },
+        tableHeaderText: {
+          color: theme.colors.foreground,
+          fontSize: 13,
+          lineHeight: 18,
+          fontWeight: "600",
+        },
+        tableCellText: {
+          color: theme.colors.foreground,
+          fontSize: 13,
           lineHeight: 18,
         },
         empty: {

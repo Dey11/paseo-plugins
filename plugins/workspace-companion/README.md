@@ -37,6 +37,7 @@ $PASEO_HOME/plugin-data/workspace-companion/
 - Notes are private to the daemon until you send or attach their contents elsewhere.
 - Notes remembers the last Write or Preview mode used for each workspace across panel closes, app restarts, and connected clients.
 - A task line such as `- [ ] Test checkout` becomes a checkbox in Preview. Selecting it updates the Markdown and immediately saves the entire current note, including any other unsaved edits.
+- Preview renders GitHub-style pipe tables and formats bare repository file locations, line references, and relative Markdown file links as code paths.
 - Selecting an HTTP or HTTPS link in Preview opens it in the operating system browser instead of Paseo's embedded browser pane.
 - **Refine with agent** uses the most recently updated agent in the workspace. It loads the result as an unsaved draft for you to review.
 
