@@ -5,6 +5,7 @@ The plugins are independently installable against a Paseo daemon. If a client wa
 ## Workspace Companion
 
 - Open **Workspace notes** from the Explorer **+** menu or the Command Center. Notes opens in the right-side Explorer beside Changes and Files. Edit Markdown in **Write**, inspect it in **Preview**, and save it to the daemon.
+- Notes remembers the last Write or Preview mode selected for each workspace.
 - Markdown task lines such as `- [ ] Test checkout` become interactive checkboxes in **Preview**. Selecting one updates the Markdown and immediately saves the entire current note, including any other unsaved edits.
 - Markdown links in **Preview** open in the operating system browser instead of Paseo's embedded browser pane.
 - **Refine with agent** sends the current note to the most recently updated agent in that workspace. The returned Markdown stays as an unsaved draft until you review and save it.

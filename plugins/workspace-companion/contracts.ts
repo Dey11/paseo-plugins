@@ -6,15 +6,12 @@ import {
   type BoardWorkflow,
   type ReviewState,
 } from "./workflow";
+import { NOTE_VIEW_MODES, NoteSchema } from "./note";
+
+export { NoteSchema } from "./note";
 
 export const ReviewStateSchema = z.enum(["unreviewed", "recheck", "approved"]);
 export type { ReviewState } from "./workflow";
-
-export const NoteSchema = z.object({
-  workspaceId: z.string().min(1),
-  markdown: z.string().max(200_000),
-  updatedAt: z.string(),
-});
 
 export const GetNoteRpc = defineRpc({
   name: "workspace-companion.note.get",
@@ -27,6 +24,15 @@ export const SaveNoteRpc = defineRpc({
   input: z.object({
     workspaceId: z.string().min(1),
     markdown: z.string().max(200_000),
+  }),
+  output: NoteSchema,
+});
+
+export const SaveNoteViewModeRpc = defineRpc({
+  name: "workspace-companion.note-view-mode.save",
+  input: z.object({
+    workspaceId: z.string().min(1),
+    viewMode: z.enum(NOTE_VIEW_MODES),
   }),
   output: NoteSchema,
 });

@@ -24,6 +24,7 @@ import {
   PlaceBoardCardRpc,
   type ReviewState,
   SaveNoteRpc,
+  SaveNoteViewModeRpc,
 } from "./contracts";
 import { requireArchivedAt } from "./archive";
 import {
@@ -37,6 +38,7 @@ import {
   type BoardWorkflow,
 } from "./workflow";
 import { toggleMarkdownTask } from "./markdown";
+import type { NoteViewMode, WorkspaceNote } from "./note";
 import { openExternalNoteUrl } from "./external-url";
 import { buildWorkspaceDeepLink, buildWorkspaceRoute } from "./workspace-route";
 
@@ -62,8 +64,8 @@ export function NotesPanel({
 }: PluginWorkspacePanelProps) {
   const getNote = useRpc(GetNoteRpc);
   const saveNote = useRpc(SaveNoteRpc);
+  const saveNoteViewMode = useRpc(SaveNoteViewModeRpc);
   const paseo = usePaseo();
-  const [mode, setMode] = useState<"write" | "preview">("write");
   const [markdown, setMarkdown] = useState("");
   const [savedMarkdown, setSavedMarkdown] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -71,10 +73,15 @@ export function NotesPanel({
   const [noticeIsError, setNoticeIsError] = useState(false);
   const [busy, setBusy] = useState<"save" | "refine" | null>(null);
   const styles = useStyles(theme, layout.compact);
+  const queryClient = useQueryClient();
+  const noteQueryKey = ["workspace-note", workspaceId] as const;
   const note = useQuery({
-    queryKey: ["workspace-note", workspaceId],
+    queryKey: noteQueryKey,
     queryFn: () => getNote({ workspaceId }),
   });
+  const [mode, setMode] = useState<NoteViewMode>(
+    () => note.data?.viewMode ?? "write",
+  );
   const workspaceAgent = useQuery({
     queryKey: ["workspace-note-agent", workspaceId],
     queryFn: async () => {
@@ -95,7 +102,10 @@ export function NotesPanel({
     setMarkdown(note.data.markdown);
     setSavedMarkdown(note.data.markdown);
     setUpdatedAt(note.data.updatedAt);
-  }, [note.data]);
+  }, [note.data?.markdown, note.data?.updatedAt]);
+  useEffect(() => {
+    if (note.data) setMode(note.data.viewMode);
+  }, [note.data?.viewMode]);
   const dirty = markdown !== savedMarkdown;
 
   async function persistNote(nextMarkdown: string) {
@@ -116,6 +126,35 @@ export function NotesPanel({
 
   async function save() {
     await persistNote(markdown);
+  }
+
+  async function changeMode(nextMode: NoteViewMode) {
+    if (nextMode === mode) return;
+    const previousMode = mode;
+    setMode(nextMode);
+    queryClient.setQueryData<WorkspaceNote>(noteQueryKey, (current) =>
+      current ? { ...current, viewMode: nextMode } : current,
+    );
+    try {
+      const saved = await saveNoteViewMode({
+        workspaceId,
+        viewMode: nextMode,
+      });
+      queryClient.setQueryData<WorkspaceNote>(noteQueryKey, (current) =>
+        current?.viewMode === nextMode
+          ? { ...current, viewMode: saved.viewMode }
+          : current,
+      );
+    } catch (error) {
+      setMode((current) => (current === nextMode ? previousMode : current));
+      queryClient.setQueryData<WorkspaceNote>(noteQueryKey, (current) =>
+        current?.viewMode === nextMode
+          ? { ...current, viewMode: previousMode }
+          : current,
+      );
+      setNotice(message(error));
+      setNoticeIsError(true);
+    }
   }
 
   async function toggleChecklist(lineIndex: number) {
@@ -196,7 +235,7 @@ export function NotesPanel({
       <Segments
         values={["write", "preview"]}
         value={mode}
-        onChange={(value) => setMode(value as "write" | "preview")}
+        onChange={(value) => void changeMode(value as NoteViewMode)}
         styles={styles}
       />
       {note.isError ? (

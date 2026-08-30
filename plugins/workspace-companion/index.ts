@@ -6,8 +6,14 @@ import {
   NoteSchema,
   PlaceBoardCardRpc,
   SaveNoteRpc,
+  SaveNoteViewModeRpc,
 } from "./contracts";
 import { AgentBoardSurface, NotesPanel } from "./main.client";
+import {
+  updateNoteMarkdown,
+  updateNoteViewMode,
+  type WorkspaceNote,
+} from "./note";
 import { JsonStore, pluginDataDirectory, workspaceFile } from "./store.server";
 import { createBoardWorkflow, placeBoardCard } from "./workflow";
 
@@ -19,11 +25,14 @@ export default function contribute(plugin: PluginContext) {
     noteStore(workspaceId).read(),
   );
   plugin.handle(SaveNoteRpc, async ({ workspaceId, markdown }) =>
-    noteStore(workspaceId).write({
-      workspaceId,
-      markdown,
-      updatedAt: new Date().toISOString(),
-    }),
+    noteStore(workspaceId).update((current) =>
+      updateNoteMarkdown(current, markdown, new Date().toISOString()),
+    ),
+  );
+  plugin.handle(SaveNoteViewModeRpc, async ({ workspaceId, viewMode }) =>
+    noteStore(workspaceId).update((current) =>
+      updateNoteViewMode(current, viewMode),
+    ),
   );
   plugin.handle(GetBoardWorkflowRpc, () => boardWorkflowStore().read());
   plugin.handle(PlaceBoardCardRpc, (placement) =>
@@ -73,14 +82,19 @@ function noteStore(workspaceId: string) {
 }
 
 function createNoteStore(workspaceId: string) {
-  return new JsonStore(
+  return new JsonStore<WorkspaceNote>(
     workspaceFile(
       pluginDataDirectory("workspace-companion"),
       workspaceId,
       "note",
     ),
     NoteSchema,
-    () => ({ workspaceId, markdown: "", updatedAt: new Date(0).toISOString() }),
+    () => ({
+      workspaceId,
+      markdown: "",
+      viewMode: "write",
+      updatedAt: new Date(0).toISOString(),
+    }),
   );
 }
 

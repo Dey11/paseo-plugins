@@ -10,7 +10,7 @@ Paseo 0.5 exposes global surfaces, sidebar items, workspace/agent panels, comman
 
 ## Scope
 
-1. Workspace-scoped Markdown notes with write and preview modes. Preview task markers are interactive and save the current note immediately, while HTTP and HTTPS links open in the operating system browser. The current agent can refine a replacement note that the user reviews before saving.
+1. Workspace-scoped Markdown notes with a durable per-workspace Write or Preview preference. Preview task markers are interactive and save the current note immediately, while HTTP and HTTPS links open in the operating system browser. The current agent can refine a replacement note that the user reviews before saving.
 2. One workspace board with exactly five columns, ordered `Running`, `Unreviewed`, `Recheck`, `Error`, and `Approved`. `Running` and `Error` are live states; the other three are plugin-owned review states. A separate header drop target archives the actual Paseo workspace without introducing a sixth status.
 3. A workspace-context Linear GraphQL panel with cursor-backed page navigation, Markdown-rendered issue descriptions and comments, status, priority, and assignee updates. Every write requires a second explicit confirmation.
 4. Workspace-scoped listening-port discovery, safe `SIGTERM`, private Tailscale Serve controls, and forwarded links opened by the operating system browser.
